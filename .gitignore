@@ -1,0 +1,36 @@
+# Claude memory
+.claude/
+
+# Temp/test files
+seed_marks.ps1
+smtp_test.txt
+student_emails.txt
+
+# Backend build artifacts
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.jar
+*.war
+*.class
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets (keep application.properties in repo but warn)
