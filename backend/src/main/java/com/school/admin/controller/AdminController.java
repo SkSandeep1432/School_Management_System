@@ -8,6 +8,7 @@ import com.school.admin.dto.request.CreateStudentRequest;
 import com.school.admin.dto.request.CreateSubjectRequest;
 import com.school.admin.dto.request.CreateTeacherRequest;
 import com.school.admin.dto.request.PromoteRequest;
+import com.school.admin.dto.request.ResetPasswordRequest;
 import com.school.admin.dto.response.ClassResponse;
 import com.school.admin.dto.response.ExamResponse;
 import com.school.admin.dto.response.MessageResponse;
@@ -158,6 +159,20 @@ public class AdminController {
         }
         teacherService.removeAssignment(assignmentId);
         return ResponseEntity.ok(new MessageResponse("Assignment removed successfully."));
+    }
+
+    @PutMapping("/teachers/{id}/reset-password")
+    public ResponseEntity<MessageResponse> resetTeacherPassword(
+            @PathVariable Long id,
+            @Valid @RequestBody ResetPasswordRequest request) {
+        teacherService.resetPassword(id, request.newPassword());
+        return ResponseEntity.ok(new MessageResponse("Password reset successfully."));
+    }
+
+    @DeleteMapping("/teachers/{id}")
+    public ResponseEntity<MessageResponse> deleteTeacher(@PathVariable Long id) {
+        teacherService.deleteTeacher(id);
+        return ResponseEntity.ok(new MessageResponse("Teacher deleted successfully."));
     }
 
     // ===================== EXAM ENDPOINTS =====================

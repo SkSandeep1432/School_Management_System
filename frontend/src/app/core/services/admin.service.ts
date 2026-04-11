@@ -31,4 +31,12 @@ export class AdminService {
   createSubject(data: {subjectName: string}): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/subjects`, data);
   }
+
+  resetTeacherPassword(teacherId: number, newPassword: string): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/teachers/${teacherId}/reset-password`, { newPassword });
+  }
+
+  deleteTeacher(teacherId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/teachers/${teacherId}`);
+  }
 }

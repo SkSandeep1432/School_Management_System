@@ -150,6 +150,27 @@ public class TeacherService {
         teacherAssignmentRepository.deleteById(assignmentId);
     }
 
+    @Transactional
+    public void resetPassword(Long teacherId, String newPassword) {
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
+        User user = teacher.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void deleteTeacher(Long teacherId) {
+        Teacher teacher = teacherRepository.findById(teacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found with id: " + teacherId));
+        // Remove all assignments first
+        teacherAssignmentRepository.deleteAll(
+                teacherAssignmentRepository.findByTeacherId(teacherId));
+        User user = teacher.getUser();
+        teacherRepository.delete(teacher);
+        userRepository.delete(user);
+    }
+
     public TeacherResponse mapToResponse(Teacher teacher) {
         return new TeacherResponse(
                 teacher.getId(),

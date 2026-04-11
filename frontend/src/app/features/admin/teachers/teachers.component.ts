@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { NavbarComponent } from '../../../shared/components/navbar/navbar.component';
 import { TeacherService } from '../../../core/services/teacher.service';
 import { AdminService } from '../../../core/services/admin.service';
@@ -34,6 +35,7 @@ import { Teacher, TeacherAssignment } from '../../../core/models/teacher.model';
     MatProgressSpinnerModule,
     MatExpansionModule,
     MatDividerModule,
+    MatTooltipModule,
     NavbarComponent
   ],
   template: `
@@ -85,6 +87,47 @@ import { Teacher, TeacherAssignment } from '../../../core/models/teacher.model';
                 Save Teacher
               </button>
               <button mat-button type="button" (click)="showForm = false; teacherForm.reset()">Cancel</button>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Reset Password Panel -->
+      <mat-card *ngIf="resetPasswordTeacher" class="form-card reset-panel">
+        <mat-card-header>
+          <mat-icon mat-card-avatar style="color:#e65100;font-size:32px;width:32px;height:32px">lock_reset</mat-icon>
+          <mat-card-title>Reset Password — {{ resetPasswordTeacher.fullName }}</mat-card-title>
+          <mat-card-subtitle>{{ resetPasswordTeacher.username }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <form [formGroup]="resetForm" (ngSubmit)="submitResetPassword()">
+            <div class="form-row">
+              <mat-form-field appearance="outline">
+                <mat-label>New Password</mat-label>
+                <input matInput [type]="showNewPwd ? 'text' : 'password'" formControlName="newPassword">
+                <button matSuffix mat-icon-button type="button" (click)="showNewPwd = !showNewPwd">
+                  <mat-icon>{{ showNewPwd ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                <mat-error *ngIf="resetForm.get('newPassword')?.hasError('required')">Required</mat-error>
+                <mat-error *ngIf="resetForm.get('newPassword')?.hasError('minlength')">Min 6 characters</mat-error>
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Confirm Password</mat-label>
+                <input matInput [type]="showConfirmPwd ? 'text' : 'password'" formControlName="confirmPassword">
+                <button matSuffix mat-icon-button type="button" (click)="showConfirmPwd = !showConfirmPwd">
+                  <mat-icon>{{ showConfirmPwd ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                <mat-error *ngIf="resetForm.get('confirmPassword')?.hasError('required')">Required</mat-error>
+                <mat-error *ngIf="resetForm.hasError('passwordMismatch') && resetForm.get('confirmPassword')?.touched">Passwords do not match</mat-error>
+              </mat-form-field>
+            </div>
+            <div class="form-actions">
+              <button mat-raised-button color="warn" type="submit" [disabled]="resetForm.invalid || resettingPwd">
+                <mat-spinner *ngIf="resettingPwd" diameter="18" style="display:inline-block;margin-right:6px;"></mat-spinner>
+                <mat-icon *ngIf="!resettingPwd">lock_reset</mat-icon>
+                {{ resettingPwd ? 'Resetting...' : 'Reset Password' }}
+              </button>
+              <button mat-stroked-button type="button" (click)="closeReset()">Cancel</button>
             </div>
           </form>
         </mat-card-content>
@@ -168,9 +211,15 @@ import { Teacher, TeacherAssignment } from '../../../core/models/teacher.model';
             </ng-container>
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Actions</th>
-              <td mat-cell *matCellDef="let t">
-                <button mat-stroked-button color="primary" (click)="openAssign(t)">
-                  <mat-icon>assignment_ind</mat-icon> Assign Subject
+              <td mat-cell *matCellDef="let t" class="action-cell">
+                <button mat-stroked-button color="primary" (click)="openAssign(t)" matTooltip="Assign Subject">
+                  <mat-icon>assignment_ind</mat-icon> Assign
+                </button>
+                <button mat-stroked-button style="color:#e65100;border-color:#e65100" (click)="openReset(t)" matTooltip="Reset Password">
+                  <mat-icon>lock_reset</mat-icon> Reset Pwd
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteTeacher(t)" matTooltip="Delete Teacher">
+                  <mat-icon>delete</mat-icon>
                 </button>
               </td>
             </ng-container>
@@ -198,6 +247,7 @@ import { Teacher, TeacherAssignment } from '../../../core/models/teacher.model';
     .empty-state { text-align: center; padding: 48px; color: #999; }
     .empty-state mat-icon { font-size: 48px; height: 48px; width: 48px; display: block; margin: 0 auto 12px; }
     .assign-panel { border-left: 4px solid #3f51b5; }
+    .reset-panel { border-left: 4px solid #e65100; }
     .assign-label { font-size: 0.85rem; font-weight: 600; color: #555; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
     .no-assign-hint { color: #999; font-size: 0.85rem; margin: 0 0 8px; }
     .assignments-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
@@ -205,6 +255,7 @@ import { Teacher, TeacherAssignment } from '../../../core/models/teacher.model';
     .assign-chip mat-icon { font-size: 18px; width: 18px; height: 18px; color: #3f51b5; }
     .remove-btn { margin-left: auto; width: 28px; height: 28px; line-height: 28px; color: #e53935; }
     .remove-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .action-cell { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 0; }
   `]
 })
 export class TeachersComponent implements OnInit {
@@ -215,11 +266,16 @@ export class TeachersComponent implements OnInit {
   displayedColumns = ['fullName', 'username', 'email', 'phone', 'actions'];
   teacherForm: FormGroup;
   assignForm: FormGroup;
+  resetForm: FormGroup;
   showForm = false;
   loading = false;
   saving = false;
   assigning = false;
+  resettingPwd = false;
+  showNewPwd = false;
+  showConfirmPwd = false;
   selectedTeacher: Teacher | null = null;
+  resetPasswordTeacher: Teacher | null = null;
   currentAssignments: TeacherAssignment[] = [];
 
   constructor(
@@ -240,6 +296,16 @@ export class TeachersComponent implements OnInit {
       classId: ['', Validators.required],
       sectionId: ['', Validators.required]
     });
+    this.resetForm = this.fb.group({
+      newPassword: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', Validators.required]
+    }, { validators: this.passwordMatchValidator });
+  }
+
+  passwordMatchValidator(form: FormGroup) {
+    const pwd = form.get('newPassword')?.value;
+    const confirm = form.get('confirmPassword')?.value;
+    return pwd === confirm ? null : { passwordMismatch: true };
   }
 
   ngOnInit(): void {
@@ -315,6 +381,49 @@ export class TeachersComponent implements OnInit {
         this.snackBar.open('Assignment removed.', 'Close', { duration: 2500 });
       },
       error: (err) => this.snackBar.open(err.error?.message || 'Error removing assignment', 'Close', { duration: 3000 })
+    });
+  }
+
+  openReset(teacher: Teacher): void {
+    this.resetPasswordTeacher = teacher;
+    this.selectedTeacher = null;
+    this.resetForm.reset();
+    this.showNewPwd = false;
+    this.showConfirmPwd = false;
+  }
+
+  closeReset(): void {
+    this.resetPasswordTeacher = null;
+    this.resetForm.reset();
+  }
+
+  submitResetPassword(): void {
+    if (this.resetForm.invalid || !this.resetPasswordTeacher) return;
+    this.resettingPwd = true;
+    const newPassword = this.resetForm.get('newPassword')?.value;
+    this.adminService.resetTeacherPassword(this.resetPasswordTeacher.id, newPassword).subscribe({
+      next: () => {
+        this.resettingPwd = false;
+        this.snackBar.open(`Password reset for ${this.resetPasswordTeacher!.fullName}`, 'Close', { duration: 3000 });
+        this.closeReset();
+      },
+      error: (err) => {
+        this.resettingPwd = false;
+        this.snackBar.open(err.error?.message || 'Error resetting password', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  deleteTeacher(teacher: Teacher): void {
+    if (!confirm(`Are you sure you want to delete "${teacher.fullName}"?\nThis will remove the teacher, their user account, and all assignments.`)) return;
+    this.adminService.deleteTeacher(teacher.id).subscribe({
+      next: () => {
+        this.snackBar.open(`${teacher.fullName} deleted successfully.`, 'Close', { duration: 3000 });
+        this.loadTeachers();
+        if (this.selectedTeacher?.id === teacher.id) this.closeAssign();
+        if (this.resetPasswordTeacher?.id === teacher.id) this.closeReset();
+      },
+      error: (err) => this.snackBar.open(err.error?.message || 'Error deleting teacher', 'Close', { duration: 3000 })
     });
   }
 }
