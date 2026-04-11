@@ -2,6 +2,7 @@ package com.school.admin.repository;
 
 import com.school.admin.entity.Student;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +18,7 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     List<Student> findByClassesId(Long classId);
 
     boolean existsByRollNumber(String rollNumber);
+
+    @Query("SELECT DISTINCT s.parentEmail FROM Student s WHERE s.parentEmail IS NOT NULL AND s.parentEmail <> ''")
+    List<String> findDistinctParentEmails();
 }
