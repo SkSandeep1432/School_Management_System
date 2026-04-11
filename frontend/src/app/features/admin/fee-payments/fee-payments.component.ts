@@ -28,7 +28,7 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
         </div>
       </div>
 
-      <mat-tab-group class="main-tabs" animationDuration="200ms">
+      <mat-tab-group class="main-tabs" animationDuration="200ms" [(selectedIndex)]="selectedTabIndex">
 
         <!-- TAB 1: Record Payment -->
         <mat-tab label="Record Payment">
@@ -435,6 +435,7 @@ export class FeePaymentsComponent implements OnInit {
   allStudentsSummary: any[] = [];
   filteredStudents: any[] = [];
   selectedStudent: any = null;
+  selectedTabIndex = 0;
   receipt: any = null;
   summarySearch = '';
   summaryLoading = false;
@@ -555,7 +556,7 @@ export class FeePaymentsComponent implements OnInit {
     return this.allStudentsSummary.reduce((sum, s) => sum + (s.totalPaid || 0), 0);
   }
 
-  jumpToPayment(s: any) { this.selectStudent(s); }
+  jumpToPayment(s: any) { this.selectStudent(s); this.selectedTabIndex = 0; }
 
   getFeeLabel(type: string): string {
     const labels: any = { TUITION:'Tuition', EXAM:'Exam', LIBRARY:'Library', SPORTS:'Sports', TRANSPORT:'Transport', OTHER:'Other' };
