@@ -4,3 +4,12 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 .full-width { width: 100%; }
 mat-card { margin: 16px; }
 .page-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+
+/* Ensure content is never hidden under fixed navbar */
+.dashboard-container,
+.page-container,
+.admin-container,
+.teacher-container,
+.parent-container {
+  padding-top: 24px;
+}
