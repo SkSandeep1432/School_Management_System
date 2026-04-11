@@ -351,7 +351,15 @@ export class ClassSubjectsComponent implements OnInit {
   loadAssigned(): void {
     if (!this.selectedClass) return;
     this.http.get<any[]>(`${this.api}/classes/${this.selectedClass.id}/subjects`)
-      .subscribe({ next: s => this.assignedSubjects = s, error: () => {} });
+      .subscribe({
+        next: s => {
+          this.assignedSubjects = s || [];
+          this.classSubjectCounts[this.selectedClass.id] = this.assignedSubjects.length;
+        },
+        error: (err) => {
+          this.snackBar.open('Failed to load subjects: ' + (err.error?.message || err.message || 'Server error'), 'Close', { duration: 4000 });
+        }
+      });
   }
 
   addSubject(): void {

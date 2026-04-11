@@ -51,6 +51,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -407,6 +408,7 @@ public class AdminController {
 
     // ===================== CLASS-SUBJECT MAPPING ENDPOINTS =====================
 
+    @Transactional(readOnly = true)
     @GetMapping("/classes/{classId}/subjects")
     public ResponseEntity<List<Map<String, Object>>> getSubjectsForClass(@PathVariable Long classId) {
         List<ClassSubject> cs = classSubjectRepository.findByClassesId(classId);
@@ -422,6 +424,7 @@ public class AdminController {
         return ResponseEntity.ok(result);
     }
 
+    @Transactional
     @PostMapping("/classes/{classId}/subjects")
     public ResponseEntity<Map<String, Object>> assignSubjectToClass(
             @PathVariable Long classId,
@@ -445,6 +448,7 @@ public class AdminController {
         return ResponseEntity.ok(m);
     }
 
+    @Transactional
     @DeleteMapping("/classes/{classId}/subjects/{subjectId}")
     public ResponseEntity<MessageResponse> removeSubjectFromClass(
             @PathVariable Long classId, @PathVariable Long subjectId) {
