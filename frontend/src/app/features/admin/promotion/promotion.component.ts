@@ -8,6 +8,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
+import { FormsModule } from '@angular/forms';
 import { NavbarComponent } from '../../../shared/components/navbar/navbar.component';
 import { AdminService } from '../../../core/services/admin.service';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -15,13 +16,13 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 interface ClassInfo { id: number; className: string; }
 interface PromotedStudentInfo { id: number; fullName: string; oldRollNumber: string; newRollNumber: string; sectionName: string; }
 interface PromoteResponse { fromClassName: string; toClassName: string; totalStudents: number; promotedCount: number; message: string; students: PromotedStudentInfo[]; }
-interface PromotionPair { fromClass: ClassInfo; toClass: ClassInfo | null; label: string; icon: string; color: string; preview: PromoteResponse | null; loading: boolean; promoted: boolean; }
+interface PromotionPair { fromClass: ClassInfo; toClass: ClassInfo | null; label: string; icon: string; color: string; preview: PromoteResponse | null; loading: boolean; promoted: boolean; promotedFees?: any[]; }
 
 @Component({
   selector: 'app-promotion',
   standalone: true,
   imports: [
-    CommonModule, MatCardModule, MatButtonModule, MatIconModule,
+    CommonModule, FormsModule, MatCardModule, MatButtonModule, MatIconModule,
     MatProgressSpinnerModule, MatTableModule, MatDialogModule,
     MatSnackBarModule, MatChipsModule, NavbarComponent
   ],
@@ -32,6 +33,13 @@ interface PromotionPair { fromClass: ClassInfo; toClass: ClassInfo | null; label
         <div>
           <h1>Year-End Class Promotion</h1>
           <p class="subtitle">Promote students to the next class at the end of the academic year</p>
+        </div>
+        <div class="year-selector">
+          <mat-icon>calendar_today</mat-icon>
+          <div>
+            <label class="year-label">New Academic Year</label>
+            <input class="year-input" type="text" [(ngModel)]="newAcademicYear" placeholder="e.g. 2026-27">
+          </div>
         </div>
       </div>
 
@@ -82,6 +90,20 @@ interface PromotionPair { fromClass: ClassInfo; toClass: ClassInfo | null; label
             <div *ngIf="pair.promoted" class="success-state">
               <mat-icon class="success-icon">check_circle</mat-icon>
               <p>{{ pair.preview?.message }}</p>
+              <div class="promo-fee-summary" *ngIf="pair.toClass && pair.promotedFees && pair.promotedFees.length > 0">
+                <div class="pfs-title"><mat-icon>currency_rupee</mat-icon> New Fee — {{ newAcademicYear }}</div>
+                <div class="pfs-row" *ngFor="let f of pair.promotedFees">
+                  <span>{{ getFeeTypeLabel(f.feeType) }}</span>
+                  <span>₹{{ f.amount | number:'1.0-0' }}</span>
+                </div>
+                <div class="pfs-total">
+                  <span>Total</span>
+                  <strong>₹{{ getPairTotal(pair) | number:'1.0-0' }}</strong>
+                </div>
+              </div>
+              <p class="promo-fee-none" *ngIf="pair.toClass && (!pair.promotedFees || pair.promotedFees.length === 0)">
+                <mat-icon>info</mat-icon> No fee structure set for Class {{ pair.toClass.className }} ({{ newAcademicYear }})
+              </p>
             </div>
           </mat-card-content>
 
@@ -180,6 +202,31 @@ interface PromotionPair { fromClass: ClassInfo; toClass: ClassInfo | null; label
               Roll numbers will be updated automatically (e.g., {{ getFirstStudent(confirmingPair)?.oldRollNumber }}
               → {{ getFirstStudent(confirmingPair)?.newRollNumber }}).
             </p>
+
+            <!-- Fee Structure for new class -->
+            <div class="fee-info-box" *ngIf="confirmingPair.toClass">
+              <div class="fee-info-header">
+                <mat-icon>currency_rupee</mat-icon>
+                <span>Fee Structure — Class {{ confirmingPair.toClass.className }} ({{ newAcademicYear }})</span>
+              </div>
+              <div *ngIf="confirmFeesLoading" class="fee-loading">
+                <mat-spinner diameter="20"></mat-spinner> Loading fees...
+              </div>
+              <div *ngIf="!confirmFeesLoading && confirmFees.length === 0" class="fee-none">
+                ⚠️ No fee structure defined for Class {{ confirmingPair.toClass.className }} in {{ newAcademicYear }}.
+                Please set up fees after promotion.
+              </div>
+              <div *ngIf="!confirmFeesLoading && confirmFees.length > 0">
+                <div class="fee-row-item" *ngFor="let f of confirmFees">
+                  <span class="fee-type-tag">{{ getFeeTypeLabel(f.feeType) }}</span>
+                  <span class="fee-amt-tag">₹{{ f.amount | number:'1.0-0' }}</span>
+                </div>
+                <div class="fee-total-row">
+                  <span>Total Fee Due</span>
+                  <strong>₹{{ getConfirmTotal() | number:'1.0-0' }}</strong>
+                </div>
+              </div>
+            </div>
           </mat-card-content>
           <mat-card-actions align="end">
             <button mat-stroked-button (click)="cancelConfirm()">Cancel</button>
@@ -237,6 +284,34 @@ interface PromotionPair { fromClass: ClassInfo; toClass: ClassInfo | null; label
     .full-preview-table { width: 100%; }
     .no-results { text-align: center; color: #999; padding: 32px; }
     .panel-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; }
+
+    /* Year selector */
+    .page-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:24px; }
+    .year-selector { display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #e0e0e0; border-radius:10px; padding:10px 14px; }
+    .year-selector mat-icon { color:#3f51b5; }
+    .year-label { display:block; font-size:0.7rem; color:#888; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:2px; }
+    .year-input { border:none; outline:none; font-size:0.95rem; font-weight:700; color:#1a237e; width:90px; background:transparent; }
+
+    /* Fee info in confirm dialog */
+    .fee-info-box { background:#f0f2ff; border-radius:10px; padding:14px 16px; margin-top:14px; border-left:4px solid #3f51b5; }
+    .fee-info-header { display:flex; align-items:center; gap:6px; font-weight:700; color:#1a237e; font-size:0.9rem; margin-bottom:10px; }
+    .fee-info-header mat-icon { font-size:18px; width:18px; height:18px; }
+    .fee-loading { display:flex; align-items:center; gap:8px; color:#888; font-size:0.85rem; }
+    .fee-none { color:#e65100; font-size:0.85rem; padding:4px 0; }
+    .fee-row-item { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px dashed #dde; }
+    .fee-row-item:last-child { border-bottom:none; }
+    .fee-type-tag { background:#e8eaf6; color:#3f51b5; border-radius:6px; padding:2px 8px; font-size:0.8rem; font-weight:600; }
+    .fee-amt-tag { font-weight:700; color:#1b5e20; font-size:0.9rem; }
+    .fee-total-row { display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:2px solid #c5cae9; font-size:0.95rem; color:#1a237e; }
+
+    /* Promoted fee summary on card */
+    .promo-fee-summary { background:#e8f5e9; border-radius:8px; padding:12px 14px; margin-top:10px; text-align:left; }
+    .pfs-title { display:flex; align-items:center; gap:4px; font-weight:700; color:#2e7d32; font-size:0.85rem; margin-bottom:8px; }
+    .pfs-title mat-icon { font-size:16px; width:16px; height:16px; }
+    .pfs-row { display:flex; justify-content:space-between; font-size:0.82rem; color:#555; padding:3px 0; }
+    .pfs-total { display:flex; justify-content:space-between; margin-top:6px; padding-top:6px; border-top:1px solid #a5d6a7; font-size:0.9rem; color:#1b5e20; }
+    .promo-fee-none { display:flex; align-items:center; gap:4px; font-size:0.8rem; color:#888; margin-top:8px; justify-content:center; }
+    .promo-fee-none mat-icon { font-size:16px; width:16px; height:16px; }
   `]
 })
 export class PromotionComponent implements OnInit {
@@ -249,10 +324,34 @@ export class PromotionComponent implements OnInit {
   previewCols = ['name', 'oldRoll', 'newRoll'];
   fullPreviewCols = ['index', 'name', 'section', 'oldRoll', 'newRoll'];
 
+  // Fee tracking
+  newAcademicYear: string = this.computeNextYear();
+  confirmFees: any[] = [];
+  confirmFeesLoading = false;
+
   private apiUrl = 'http://localhost:8080/api/admin';
+  private feeApi = 'http://localhost:8080/api/admin/fee';
   private filterMap = new Map<PromotionPair, string>();
 
   constructor(private http: HttpClient, private snackBar: MatSnackBar) {}
+
+  computeNextYear(): string {
+    const y = new Date().getFullYear();
+    return `${y}-${String(y + 1).slice(2)}`;
+  }
+
+  getFeeTypeLabel(type: string): string {
+    const m: any = { TUITION: 'Tuition', EXAM: 'Exam', LIBRARY: 'Library', SPORTS: 'Sports', TRANSPORT: 'Transport', OTHER: 'Other' };
+    return m[type] || type;
+  }
+
+  getConfirmTotal(): number {
+    return this.confirmFees.reduce((s, f) => s + (f.amount || 0), 0);
+  }
+
+  getPairTotal(pair: PromotionPair): number {
+    return (pair.promotedFees || []).reduce((s: number, f: any) => s + (f.amount || 0), 0);
+  }
 
   setFilter(pair: PromotionPair, value: string): void {
     this.filterMap.set(pair, value.toLowerCase().trim());
@@ -330,6 +429,18 @@ export class PromotionComponent implements OnInit {
 
   confirmAndPromote(pair: PromotionPair): void {
     this.confirmingPair = pair;
+    this.confirmFees = [];
+    if (pair.toClass) {
+      this.confirmFeesLoading = true;
+      const token = localStorage.getItem('token');
+      const headers = new HttpHeaders({ Authorization: 'Bearer ' + token });
+      this.http.get<any[]>(`${this.feeApi}/structures/class/${pair.toClass.id}`,
+        { headers, params: { academicYear: this.newAcademicYear } }
+      ).subscribe({
+        next: fees => { this.confirmFees = fees; this.confirmFeesLoading = false; },
+        error: ()  => { this.confirmFeesLoading = false; }
+      });
+    }
   }
 
   cancelConfirm(): void {
@@ -350,6 +461,7 @@ export class PromotionComponent implements OnInit {
       next: resp => {
         pair.preview = resp;
         pair.promoted = true;
+        pair.promotedFees = this.confirmFees;   // store fee snapshot on the card
         this.promoting = false;
         this.confirmingPair = null;
         this.snackBar.open(resp.message, 'Close', { duration: 5000, panelClass: ['success-snack'] });
