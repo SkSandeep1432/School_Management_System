@@ -70,11 +70,6 @@ public class AttendanceService {
         Section section = sectionRepository.findById(request.sectionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Section not found with id: " + request.sectionId()));
 
-        // Check for duplicate
-        if (attendanceRepository.findByStudentIdAndAttendanceDate(request.studentId(), date).isPresent()) {
-            throw new BadRequestException("Attendance for this student on " + date + " has already been marked.");
-        }
-
         Attendance.AttendanceStatus status;
         try {
             status = Attendance.AttendanceStatus.valueOf(request.status().toUpperCase());
@@ -82,14 +77,18 @@ public class AttendanceService {
             throw new BadRequestException("Invalid attendance status: " + request.status() + ". Use PRESENT, ABSENT, or LATE.");
         }
 
-        Attendance attendance = Attendance.builder()
-                .student(student)
-                .teacher(teacher)
-                .classes(classes)
-                .section(section)
-                .attendanceDate(date)
-                .status(status)
-                .build();
+        // Upsert: update if already exists, insert if new
+        Attendance attendance = attendanceRepository
+                .findByStudentIdAndAttendanceDate(request.studentId(), date)
+                .orElseGet(() -> Attendance.builder()
+                        .student(student)
+                        .teacher(teacher)
+                        .classes(classes)
+                        .section(section)
+                        .attendanceDate(date)
+                        .build());
+
+        attendance.setStatus(status);
         attendanceRepository.save(attendance);
 
         return new MessageResponse("Attendance marked successfully for student: " + student.getFullName());
