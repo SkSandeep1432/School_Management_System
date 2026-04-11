@@ -112,8 +112,36 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
               </div>
 
               <!-- Fee Structure Breakdown -->
-              <div class="fee-breakdown" *ngIf="selectedStudent.feeStructures?.length > 0 || selectedStudent.carryForwards?.length > 0">
-                <h4 class="breakdown-title">Fee Breakdown</h4>
+              <div class="fee-breakdown">
+                <div class="breakdown-header">
+                  <h4 class="breakdown-title">Fee Breakdown</h4>
+                  <button class="add-cf-btn" (click)="toggleCfForm()" [class.active]="showCfForm">
+                    <mat-icon>{{ showCfForm ? 'close' : 'add' }}</mat-icon>
+                    {{ showCfForm ? 'Cancel' : 'Add Previous Balance' }}
+                  </button>
+                </div>
+
+                <!-- Add carry-forward form -->
+                <div class="cf-form" *ngIf="showCfForm">
+                  <div class="cf-form-grid">
+                    <div class="cf-field">
+                      <label>Previous Year *</label>
+                      <input type="text" [(ngModel)]="cfForm.fromYear" placeholder="e.g. 2025-26">
+                    </div>
+                    <div class="cf-field">
+                      <label>Unpaid Amount (₹) *</label>
+                      <div class="cf-amt-wrap"><span>₹</span><input type="number" [(ngModel)]="cfForm.amount" placeholder="e.g. 12000"></div>
+                    </div>
+                    <div class="cf-field cf-save-col">
+                      <label>&nbsp;</label>
+                      <button class="cf-save-btn" (click)="addCarryForward()" [disabled]="cfSaving">
+                        <mat-icon>{{ cfSaving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                        {{ cfSaving ? 'Saving...' : 'Add Balance' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="breakdown-list">
                   <div class="breakdown-item" *ngFor="let fs of selectedStudent.feeStructures">
                     <span class="fee-type-chip ft-{{ fs.feeType.toLowerCase() }}">{{ getFeeLabel(fs.feeType) }}</span>
@@ -126,11 +154,18 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
                       Previous Balance ({{ cf.fromAcademicYear }})
                     </span>
                     <span class="breakdown-amt carry-amt">&#8377;{{ cf.amount | number:'1.0-0' }}</span>
+                    <button class="cf-del-btn" (click)="deleteCarryForward(cf.id)" matTooltip="Remove">
+                      <mat-icon>close</mat-icon>
+                    </button>
                   </div>
-                  <!-- Total row if carry-forward exists -->
+                  <!-- Total row when carry-forward exists -->
                   <div class="breakdown-total" *ngIf="selectedStudent.carryForwards?.length > 0">
                     <span>Total Due (incl. carry forward)</span>
                     <strong>&#8377;{{ selectedStudent.totalDue | number:'1.0-0' }}</strong>
+                  </div>
+                  <!-- Empty state -->
+                  <div class="breakdown-empty" *ngIf="!selectedStudent.feeStructures?.length && !selectedStudent.carryForwards?.length">
+                    <mat-icon>info_outline</mat-icon> No fee structure set for this class/year. Use <strong>Add Previous Balance</strong> to manually add arrears.
                   </div>
                 </div>
               </div>
@@ -356,7 +391,26 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
 
     /* Fee Breakdown */
     .fee-breakdown { padding:16px 24px; background:#fafafa; border-bottom:1px solid #f0f0f0; }
-    .breakdown-title { font-size:0.85rem; font-weight:700; color:#555; margin:0 0 10px; }
+    .breakdown-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .breakdown-title { font-size:0.85rem; font-weight:700; color:#555; margin:0; }
+    .add-cf-btn { display:flex; align-items:center; gap:4px; background:#fff3e0; color:#e65100; border:1.5px solid #ffb74d; border-radius:8px; padding:5px 12px; font-size:0.78rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
+    .add-cf-btn.active { background:#e65100; color:#fff; border-color:#e65100; }
+    .add-cf-btn mat-icon { font-size:15px; width:15px; height:15px; }
+    .cf-form { background:#fff8f0; border:1.5px dashed #ffb74d; border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+    .cf-form-grid { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; }
+    .cf-field { display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .cf-field label { font-size:0.72rem; font-weight:700; color:#666; }
+    .cf-field input { border:1.5px solid #e0e0e0; border-radius:7px; padding:7px 10px; font-size:0.85rem; outline:none; box-sizing:border-box; width:100%; }
+    .cf-field input:focus { border-color:#e65100; }
+    .cf-amt-wrap { display:flex; align-items:center; border:1.5px solid #e0e0e0; border-radius:7px; overflow:hidden; }
+    .cf-amt-wrap span { padding:0 8px; color:#9e9e9e; font-weight:600; font-size:0.85rem; flex-shrink:0; }
+    .cf-amt-wrap input { border:none; outline:none; padding:7px 8px 7px 0; flex:1; font-size:0.85rem; min-width:0; }
+    .cf-save-btn { display:flex; align-items:center; gap:6px; background:#e65100; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-size:0.82rem; font-weight:700; cursor:pointer; white-space:nowrap; width:100%; justify-content:center; }
+    .cf-save-btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .cf-del-btn { width:22px; height:22px; background:#ffebee; color:#c62828; border:none; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer; margin-left:auto; flex-shrink:0; }
+    .cf-del-btn mat-icon { font-size:13px; width:13px; height:13px; }
+    .breakdown-empty { display:flex; align-items:center; gap:6px; font-size:0.82rem; color:#aaa; padding:4px 0; }
+    .breakdown-empty mat-icon { font-size:16px; width:16px; height:16px; }
     .breakdown-list { display:flex; flex-wrap:wrap; gap:8px; }
     .breakdown-item { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:6px 12px; }
     .fee-type-chip { border-radius:6px; padding:2px 8px; font-size:0.78rem; font-weight:600; }
@@ -484,6 +538,11 @@ export class FeePaymentsComponent implements OnInit {
   paying = false;
   payForm = { amount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: '', notes: '' };
 
+  // Carry-forward manual entry
+  showCfForm = false;
+  cfSaving = false;
+  cfForm = { fromYear: '', amount: '' };
+
   private api = 'http://localhost:8080/api/admin/fee';
   private adminApi = 'http://localhost:8080/api/admin';
 
@@ -534,6 +593,8 @@ export class FeePaymentsComponent implements OnInit {
 
   resetPayForm() {
     this.payForm = { amount: '', paymentDate: new Date().toISOString().split('T')[0], paymentMode: '', notes: '' };
+    this.showCfForm = false;
+    this.cfForm = { fromYear: '', amount: '' };
   }
 
   recordPayment() {
@@ -596,6 +657,55 @@ export class FeePaymentsComponent implements OnInit {
   }
 
   jumpToPayment(s: any) { this.selectStudent(s); this.selectedTabIndex = 0; }
+
+  toggleCfForm() {
+    this.showCfForm = !this.showCfForm;
+    if (this.showCfForm) {
+      // Pre-fill previous year
+      const parts = this.academicYear.split('-');
+      if (parts.length === 2) {
+        const start = parseInt(parts[0]) - 1;
+        this.cfForm.fromYear = `${start}-${String(start + 1).slice(2)}`;
+      }
+    }
+  }
+
+  addCarryForward() {
+    if (!this.cfForm.fromYear || !this.cfForm.amount) {
+      this.snack.open('Previous year and amount are required', 'Close', { duration: 2500 });
+      return;
+    }
+    this.cfSaving = true;
+    this.http.post(`${this.api}/carry-forward`, {
+      studentId: this.selectedStudent.studentId,
+      fromAcademicYear: this.cfForm.fromYear,
+      toAcademicYear: this.academicYear,
+      amount: this.cfForm.amount
+    }).subscribe({
+      next: () => {
+        this.cfSaving = false;
+        this.showCfForm = false;
+        this.cfForm = { fromYear: '', amount: '' };
+        this.snack.open('Previous balance added!', 'Close', { duration: 2500 });
+        this.reloadStudent();
+      },
+      error: err => {
+        this.cfSaving = false;
+        this.snack.open(err.error?.message || 'Error adding carry forward', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  deleteCarryForward(id: number) {
+    if (!confirm('Remove this previous balance entry?')) return;
+    this.http.delete(`${this.api}/carry-forward/${id}`).subscribe({
+      next: () => {
+        this.snack.open('Removed.', 'Close', { duration: 2000 });
+        this.reloadStudent();
+      },
+      error: () => this.snack.open('Error removing', 'Close', { duration: 2500 })
+    });
+  }
 
   getFeeLabel(type: string): string {
     const labels: any = { TUITION:'Tuition', EXAM:'Exam', LIBRARY:'Library', SPORTS:'Sports', TRANSPORT:'Transport', OTHER:'Other' };

@@ -172,6 +172,36 @@ public class FeeController {
         return ResponseEntity.ok(new MessageResponse("Payment deleted."));
     }
 
+    // ── CARRY FORWARD (manual) ──
+
+    @Transactional
+    @PostMapping("/carry-forward")
+    public ResponseEntity<Map<String, Object>> addCarryForward(@RequestBody Map<String, Object> body) {
+        Long studentId = Long.valueOf(body.get("studentId").toString());
+        Student student = studentRepo.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+        FeeCarryForward cf = new FeeCarryForward();
+        cf.setStudent(student);
+        cf.setAmount(Double.valueOf(body.get("amount").toString()));
+        cf.setFromAcademicYear(body.get("fromAcademicYear").toString());
+        cf.setToAcademicYear(body.get("toAcademicYear").toString());
+        FeeCarryForward saved = feeCarryForwardRepo.save(cf);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", saved.getId());
+        m.put("studentId", studentId);
+        m.put("amount", saved.getAmount());
+        m.put("fromAcademicYear", saved.getFromAcademicYear());
+        m.put("toAcademicYear", saved.getToAcademicYear());
+        return ResponseEntity.ok(m);
+    }
+
+    @Transactional
+    @DeleteMapping("/carry-forward/{id}")
+    public ResponseEntity<MessageResponse> deleteCarryForward(@PathVariable Long id) {
+        feeCarryForwardRepo.deleteById(id);
+        return ResponseEntity.ok(new MessageResponse("Carry forward removed."));
+    }
+
     // ── STUDENT FEE SUMMARY ──
 
     @Transactional(readOnly = true)
