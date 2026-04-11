@@ -64,7 +64,44 @@ public class ExamService {
                 .endDate(request.endDate() != null ? LocalDate.parse(request.endDate()) : null)
                 .isLocked(false)
                 .build();
-        return mapToResponse(examRepository.save(exam));
+        exam = examRepository.save(exam);
+
+        // Notify all teachers about new exam
+        String notifTitle = "📅 New Exam Scheduled: " + exam.getExamName();
+        String notifMessage = "A new " + exam.getExamType().name() + " exam '" + exam.getExamName()
+                + "' has been scheduled for Academic Year " + exam.getAcademicYear()
+                + ". Exam period: " + exam.getStartDate() + " to " + exam.getEndDate()
+                + ". Please prepare mark entry accordingly.";
+        try {
+            announcementService.sendToTeachers(
+                "New Exam Scheduled: " + exam.getExamName(),
+                "Dear Teacher,\n\nA new exam has been scheduled by the School Administration.\n\n"
+                + "Exam Name  : " + exam.getExamName() + "\n"
+                + "Type       : " + exam.getExamType().name() + "\n"
+                + "Academic Year: " + exam.getAcademicYear() + "\n"
+                + "Start Date : " + exam.getStartDate() + "\n"
+                + "End Date   : " + exam.getEndDate() + "\n\n"
+                + "Please prepare your mark entry for this exam.\n\n"
+                + "Regards,\nSchool Administration"
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send exam creation email: " + e.getMessage());
+        }
+        // In-app notifications
+        List<Teacher> teachers = teacherRepository.findAll();
+        LocalDateTime now = LocalDateTime.now();
+        for (Teacher teacher : teachers) {
+            Notification notification = new Notification();
+            notification.setTeacher(teacher);
+            notification.setTitle(notifTitle);
+            notification.setMessage(notifMessage);
+            notification.setType("EXAM_CREATED");
+            notification.setRead(false);
+            notification.setCreatedAt(now);
+            notificationRepository.save(notification);
+        }
+
+        return mapToResponse(exam);
     }
 
     @Transactional(readOnly = true)

@@ -39,9 +39,12 @@ public class AnnouncementService {
         userRepository.findAll().stream()
                 .filter(u -> u.getRole() == User.Role.TEACHER)
                 .map(User::getEmail)
+                .filter(email -> email != null && !email.isBlank())
                 .forEach(emails::add);
 
-        emails.addAll(studentRepository.findDistinctParentEmails());
+        studentRepository.findDistinctParentEmails().stream()
+                .filter(email -> email != null && !email.isBlank())
+                .forEach(emails::add);
 
         sendEmails(new ArrayList<>(emails), subject, message);
     }
@@ -50,6 +53,7 @@ public class AnnouncementService {
         List<String> emails = userRepository.findAll().stream()
                 .filter(u -> u.getRole() == User.Role.TEACHER)
                 .map(User::getEmail)
+                .filter(email -> email != null && !email.isBlank())
                 .toList();
         sendEmails(emails, subject, message);
     }

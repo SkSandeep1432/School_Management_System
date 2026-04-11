@@ -233,6 +233,7 @@ export class TeacherDashboardComponent implements OnInit {
     switch (type) {
       case 'EXAM_LOCKED': return 'lock';
       case 'EXAM_UNLOCKED': return 'lock_open';
+      case 'EXAM_CREATED': return 'event_note';
       default: return 'notifications';
     }
   }
