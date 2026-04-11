@@ -4,19 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { NavbarComponent } from '../../../shared/components/navbar/navbar.component';
+
+interface FeeRow { id: number; feeType: string; amount: number; description: string; academicYear: string; classId: number; className: string; }
+interface ClassCard { classId: number; className: string; fees: FeeRow[]; showAddForm: boolean; addForm: any; addSaving: boolean; }
 
 @Component({
   selector: 'app-fee-structure',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatSnackBarModule, MatIconModule,
-    MatSelectModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatTooltipModule, NavbarComponent],
+  imports: [CommonModule, FormsModule, MatSnackBarModule, MatIconModule, MatTooltipModule, NavbarComponent],
   template: `
     <app-navbar></app-navbar>
     <div class="page-container">
@@ -25,210 +22,278 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
       <div class="pg-header">
         <div>
           <h1 class="pg-title"><mat-icon>account_balance</mat-icon> Fee Structure Management</h1>
-          <p class="pg-sub">Define fee amounts per class and academic year</p>
+          <p class="pg-sub">Manage multiple fee types per class. Each class can have different fee structures.</p>
         </div>
-      </div>
-
-      <!-- Filters -->
-      <div class="filter-row">
-        <div class="filter-box">
-          <mat-icon>class</mat-icon>
-          <select [(ngModel)]="selectedClassId" (change)="onFilterChange()">
-            <option value="">All Classes</option>
-            <option *ngFor="let c of classes" [value]="c.id">Class {{ c.className }}</option>
-          </select>
-        </div>
-        <div class="filter-box">
+        <div class="year-box">
           <mat-icon>calendar_today</mat-icon>
-          <input type="text" [(ngModel)]="filterYear" placeholder="e.g. 2025-26" (change)="onFilterChange()">
-        </div>
-        <button class="add-btn" (click)="showForm = !showForm">
-          <mat-icon>{{ showForm ? 'close' : 'add' }}</mat-icon>
-          {{ showForm ? 'Cancel' : 'Add Fee Structure' }}
-        </button>
-      </div>
-
-      <!-- Add Form -->
-      <div class="form-card" *ngIf="showForm">
-        <h3 class="form-title">{{ editId ? 'Edit Fee Structure' : 'Add New Fee Structure' }}</h3>
-        <div class="form-grid">
-          <div class="field-group">
-            <label>Class *</label>
-            <select [(ngModel)]="form.classId">
-              <option value="">Select Class</option>
-              <option *ngFor="let c of classes" [value]="c.id">Class {{ c.className }}</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label>Fee Type *</label>
-            <select [(ngModel)]="form.feeType">
-              <option value="">Select Type</option>
-              <option value="TUITION">Tuition Fee</option>
-              <option value="EXAM">Exam Fee</option>
-              <option value="LIBRARY">Library Fee</option>
-              <option value="SPORTS">Sports Fee</option>
-              <option value="TRANSPORT">Transport Fee</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label>Amount (&#8377;) *</label>
-            <input type="number" [(ngModel)]="form.amount" placeholder="e.g. 5000">
-          </div>
-          <div class="field-group">
-            <label>Academic Year *</label>
-            <input type="text" [(ngModel)]="form.academicYear" placeholder="e.g. 2025-26">
-          </div>
-          <div class="field-group full-span">
-            <label>Description</label>
-            <input type="text" [(ngModel)]="form.description" placeholder="Optional description">
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="save-btn" (click)="saveStructure()" [disabled]="saving">
-            <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
-            {{ saving ? 'Saving...' : (editId ? 'Update' : 'Save') }}
-          </button>
-          <button class="cancel-btn" (click)="cancelEdit()">Cancel</button>
+          <input type="text" [(ngModel)]="filterYear" placeholder="e.g. 2025-26" (change)="loadStructures()">
         </div>
       </div>
 
-      <!-- Stats Summary -->
-      <div class="stats-row" *ngIf="structures.length > 0">
-        <div class="stat-pill">
-          <mat-icon>list</mat-icon>
-          <span>{{ structures.length }} fee type(s)</span>
-        </div>
-        <div class="stat-pill total">
-          <mat-icon>currency_rupee</mat-icon>
-          <span>Total: &#8377;{{ getTotalAmount() | number }}</span>
-        </div>
+      <!-- Summary Bar -->
+      <div class="summary-bar" *ngIf="classCards.length > 0">
+        <div class="sum-pill blue"><mat-icon>class</mat-icon> {{ classCards.length }} Classes</div>
+        <div class="sum-pill purple"><mat-icon>list</mat-icon> {{ getTotalFeeTypes() }} Fee Types</div>
+        <div class="sum-pill green"><mat-icon>currency_rupee</mat-icon> Total: ₹{{ getGrandTotal() | number:'1.0-0' }}</div>
       </div>
 
-      <!-- Fee Structure Table -->
-      <div class="table-card">
-        <div *ngIf="loading" class="loading">Loading fee structures...</div>
-        <div *ngIf="!loading && structures.length === 0" class="empty">
-          <mat-icon>account_balance_wallet</mat-icon>
-          <p>No fee structures found. Add one above.</p>
-        </div>
-        <table *ngIf="!loading && structures.length > 0" class="fee-table">
-          <thead>
-            <tr>
-              <th>Class</th>
-              <th>Fee Type</th>
-              <th>Description</th>
-              <th>Academic Year</th>
-              <th>Amount (&#8377;)</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let s of structures">
-              <td><span class="class-badge">Class {{ s.className }}</span></td>
-              <td><span class="fee-type-badge" [ngClass]="'ft-' + s.feeType.toLowerCase()">{{ getFeeLabel(s.feeType) }}</span></td>
-              <td class="desc-col">{{ s.description || '—' }}</td>
-              <td>{{ s.academicYear }}</td>
-              <td class="amount-col">&#8377;{{ s.amount | number:'1.0-0' }}</td>
-              <td>
-                <div class="row-actions">
-                  <button class="edit-btn" (click)="startEdit(s)" matTooltip="Edit">
+      <!-- Loading -->
+      <div class="loading-state" *ngIf="loading">
+        <mat-icon>hourglass_empty</mat-icon>
+        <p>Loading fee structures...</p>
+      </div>
+
+      <!-- Empty -->
+      <div class="empty-state" *ngIf="!loading && classCards.length === 0">
+        <mat-icon>account_balance_wallet</mat-icon>
+        <p>No fee structures yet for {{ filterYear }}.</p>
+        <p class="empty-hint">Click <strong>+ Add Fee</strong> on any class card below.</p>
+      </div>
+
+      <!-- Class Cards Grid -->
+      <div class="cards-grid" *ngIf="!loading">
+        <div class="class-card" *ngFor="let card of classCards">
+
+          <!-- Card Header -->
+          <div class="cc-header">
+            <div class="cc-class-badge">Class {{ card.className }}</div>
+            <div class="cc-meta">
+              <span class="cc-count">{{ card.fees.length }} fee type{{ card.fees.length !== 1 ? 's' : '' }}</span>
+              <span class="cc-total">₹{{ getClassTotal(card) | number:'1.0-0' }}</span>
+            </div>
+            <button class="cc-add-btn" (click)="toggleAddForm(card)" [class.cancel]="card.showAddForm">
+              <mat-icon>{{ card.showAddForm ? 'close' : 'add' }}</mat-icon>
+              {{ card.showAddForm ? 'Cancel' : '+ Add Fee' }}
+            </button>
+          </div>
+
+          <!-- Add Fee Form (per class) -->
+          <div class="add-form" *ngIf="card.showAddForm">
+            <div class="add-form-grid">
+              <div class="af-field">
+                <label>Fee Type *</label>
+                <select [(ngModel)]="card.addForm.feeType">
+                  <option value="">Select type</option>
+                  <option value="TUITION">Tuition Fee</option>
+                  <option value="EXAM">Exam Fee</option>
+                  <option value="LIBRARY">Library Fee</option>
+                  <option value="SPORTS">Sports Fee</option>
+                  <option value="TRANSPORT">Transport Fee</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+              <div class="af-field">
+                <label>Amount (₹) *</label>
+                <div class="amt-input"><span>₹</span><input type="number" [(ngModel)]="card.addForm.amount" placeholder="e.g. 5000"></div>
+              </div>
+              <div class="af-field">
+                <label>Description</label>
+                <input type="text" [(ngModel)]="card.addForm.description" placeholder="Optional">
+              </div>
+            </div>
+            <div class="add-form-actions">
+              <button class="af-save-btn" (click)="addFee(card)" [disabled]="card.addSaving">
+                <mat-icon>{{ card.addSaving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                {{ card.addSaving ? 'Saving...' : 'Save Fee' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Fee Types List -->
+          <div class="fees-list" *ngIf="card.fees.length > 0">
+            <div class="fee-row" *ngFor="let fee of card.fees">
+
+              <!-- VIEW MODE -->
+              <ng-container *ngIf="editingId !== fee.id">
+                <div class="fee-row-left">
+                  <span class="fee-badge" [ngClass]="'ft-' + fee.feeType.toLowerCase()">
+                    <mat-icon>{{ getFeeIcon(fee.feeType) }}</mat-icon>
+                    {{ getFeeLabel(fee.feeType) }}
+                  </span>
+                  <span class="fee-desc" *ngIf="fee.description">{{ fee.description }}</span>
+                </div>
+                <div class="fee-row-right">
+                  <span class="fee-amount">₹{{ fee.amount | number:'1.0-0' }}</span>
+                  <button class="action-btn edit" (click)="startInlineEdit(fee)" matTooltip="Edit">
                     <mat-icon>edit</mat-icon>
                   </button>
-                  <button class="del-btn" (click)="deleteStructure(s.id)" matTooltip="Delete">
+                  <button class="action-btn del" (click)="deleteFee(fee.id, card)" matTooltip="Delete">
                     <mat-icon>delete</mat-icon>
                   </button>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </ng-container>
+
+              <!-- INLINE EDIT MODE -->
+              <ng-container *ngIf="editingId === fee.id">
+                <div class="inline-edit-row">
+                  <select [(ngModel)]="editForm.feeType" class="ie-select">
+                    <option value="TUITION">Tuition</option>
+                    <option value="EXAM">Exam</option>
+                    <option value="LIBRARY">Library</option>
+                    <option value="SPORTS">Sports</option>
+                    <option value="TRANSPORT">Transport</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                  <div class="ie-amt"><span>₹</span><input type="number" [(ngModel)]="editForm.amount"></div>
+                  <input type="text" [(ngModel)]="editForm.description" placeholder="Description" class="ie-desc">
+                  <div class="ie-actions">
+                    <button class="ie-save" (click)="saveInlineEdit(fee.id, card)" [disabled]="editSaving">
+                      <mat-icon>check</mat-icon>
+                    </button>
+                    <button class="ie-cancel" (click)="cancelEdit()">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </ng-container>
+
+            </div>
+          </div>
+
+          <!-- Empty class -->
+          <div class="cc-empty" *ngIf="card.fees.length === 0 && !card.showAddForm">
+            <mat-icon>add_circle_outline</mat-icon>
+            <span>No fees set. Click <strong>+ Add Fee</strong> to start.</span>
+          </div>
+
+        </div>
+
+        <!-- Classes with no card yet — show empty placeholder cards -->
+        <div class="class-card placeholder" *ngFor="let c of getClassesWithNoFee()">
+          <div class="cc-header">
+            <div class="cc-class-badge">Class {{ c.className }}</div>
+            <div class="cc-meta"><span class="cc-count zero">0 fee types</span></div>
+            <button class="cc-add-btn" (click)="initCard(c); toggleAddForm(getCard(c.id)!)">
+              <mat-icon>add</mat-icon> + Add Fee
+            </button>
+          </div>
+          <div class="cc-empty">
+            <mat-icon>add_circle_outline</mat-icon>
+            <span>No fees configured for this class.</span>
+          </div>
+        </div>
+
       </div>
     </div>
   `,
   styles: [`
-    .page-container { padding:28px; max-width:1200px; margin:0 auto; animation:fadeInUp 0.35s ease both; }
+    .page-container { padding:28px; max-width:1280px; margin:0 auto; animation:fadeInUp 0.35s ease both; }
     @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
-    .pg-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+    /* Header */
+    .pg-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
     .pg-title { display:flex; align-items:center; gap:10px; font-size:1.7rem; font-weight:800; color:#1a237e; margin:0 0 4px; }
     .pg-title mat-icon { font-size:28px; width:28px; height:28px; color:#3f51b5; }
-    .pg-sub { color:#888; margin:0; font-size:0.9rem; }
+    .pg-sub { color:#888; margin:0; font-size:0.88rem; }
+    .year-box { display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #e0e0e0; border-radius:10px; padding:8px 14px; }
+    .year-box mat-icon { color:#9e9e9e; font-size:18px; }
+    .year-box input { border:none; outline:none; font-size:0.9rem; width:110px; }
 
-    /* Filters */
-    .filter-row { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
-    .filter-box { display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #e0e0e0; border-radius:10px; padding:8px 14px; }
-    .filter-box mat-icon { color:#9e9e9e; font-size:18px; }
-    .filter-box select, .filter-box input { border:none; outline:none; font-size:0.9rem; color:#333; background:transparent; min-width:140px; }
-    .add-btn { display:flex; align-items:center; gap:6px; background:linear-gradient(135deg,#1a237e,#5c6bc0); color:#fff; border:none; border-radius:10px; padding:10px 20px; font-size:0.9rem; font-weight:700; cursor:pointer; transition:opacity 0.2s,transform 0.15s; margin-left:auto; }
-    .add-btn:hover { opacity:0.9; transform:translateY(-1px); }
-    .add-btn mat-icon { font-size:18px; }
+    /* Summary Bar */
+    .summary-bar { display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+    .sum-pill { display:flex; align-items:center; gap:6px; border-radius:20px; padding:6px 16px; font-size:0.85rem; font-weight:700; }
+    .sum-pill mat-icon { font-size:15px; width:15px; height:15px; }
+    .sum-pill.blue { background:#e8eaf6; color:#1a237e; }
+    .sum-pill.purple { background:#f3e5f5; color:#6a1b9a; }
+    .sum-pill.green { background:#e8f5e9; color:#1b5e20; }
 
-    /* Form */
-    .form-card { background:#fff; border-radius:16px; padding:24px; margin-bottom:20px; box-shadow:0 4px 20px rgba(0,0,0,0.08); border-left:4px solid #3f51b5; }
-    .form-title { font-size:1rem; font-weight:700; color:#1a237e; margin:0 0 20px; }
-    .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; margin-bottom:20px; }
-    .full-span { grid-column:1/-1; }
-    .field-group { display:flex; flex-direction:column; gap:6px; }
-    label { font-size:0.8rem; font-weight:600; color:#555; }
-    .field-group select, .field-group input {
-      border:1.5px solid #e0e0e0; border-radius:8px; padding:9px 12px;
-      font-size:0.9rem; color:#333; outline:none; transition:border-color 0.2s;
-      background:#fafafa; font-family:inherit;
+    /* States */
+    .loading-state, .empty-state { text-align:center; padding:60px; color:#bbb; }
+    .loading-state mat-icon, .empty-state mat-icon { font-size:52px; width:52px; height:52px; display:block; margin:0 auto 12px; color:#e0e0e0; }
+    .empty-hint { font-size:0.85rem; color:#bbb; margin-top:6px; }
+
+    /* Cards Grid */
+    .cards-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:20px; }
+
+    /* Class Card */
+    .class-card { background:#fff; border-radius:16px; box-shadow:0 2px 14px rgba(0,0,0,0.08); overflow:hidden; transition:box-shadow 0.2s; }
+    .class-card:hover { box-shadow:0 6px 24px rgba(0,0,0,0.12); }
+    .class-card.placeholder { opacity:0.7; }
+
+    /* Card Header */
+    .cc-header { display:flex; align-items:center; gap:10px; padding:14px 16px; background:linear-gradient(135deg,#f8f9ff,#eef0fb); border-bottom:2px solid #e8eaf6; }
+    .cc-class-badge { background:linear-gradient(135deg,#1a237e,#5c6bc0); color:#fff; border-radius:10px; padding:5px 14px; font-size:0.9rem; font-weight:700; flex-shrink:0; }
+    .cc-meta { flex:1; display:flex; flex-direction:column; gap:2px; padding-left:4px; }
+    .cc-count { font-size:0.78rem; color:#888; font-weight:500; }
+    .cc-count.zero { color:#e65100; }
+    .cc-total { font-size:0.95rem; font-weight:800; color:#1b5e20; }
+    .cc-add-btn { display:flex; align-items:center; gap:4px; background:#3f51b5; color:#fff; border:none; border-radius:8px; padding:6px 12px; font-size:0.8rem; font-weight:700; cursor:pointer; transition:background 0.2s; white-space:nowrap; flex-shrink:0; }
+    .cc-add-btn:hover { background:#303f9f; }
+    .cc-add-btn.cancel { background:#e53935; }
+    .cc-add-btn mat-icon { font-size:16px; width:16px; height:16px; }
+
+    /* Add form per card */
+    .add-form { padding:14px 16px; background:#fffde7; border-bottom:1px solid #fff9c4; }
+    .add-form-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px; }
+    .af-field { display:flex; flex-direction:column; gap:4px; }
+    .af-field label { font-size:0.75rem; font-weight:700; color:#555; }
+    .af-field select, .af-field input {
+      border:1.5px solid #e0e0e0; border-radius:8px; padding:7px 10px;
+      font-size:0.85rem; outline:none; background:#fff; font-family:inherit; transition:border-color 0.2s;
     }
-    .field-group select:focus, .field-group input:focus { border-color:#3f51b5; background:#fff; }
-    .form-actions { display:flex; gap:12px; }
-    .save-btn { display:flex; align-items:center; gap:6px; background:linear-gradient(135deg,#1a237e,#5c6bc0); color:#fff; border:none; border-radius:10px; padding:10px 22px; font-size:0.9rem; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
-    .save-btn:disabled { opacity:0.6; cursor:not-allowed; }
-    .cancel-btn { background:#f5f5f5; color:#666; border:none; border-radius:10px; padding:10px 18px; font-size:0.9rem; cursor:pointer; }
-    .save-btn mat-icon { font-size:16px; }
+    .af-field select:focus, .af-field input:focus { border-color:#3f51b5; }
+    .amt-input { display:flex; align-items:center; border:1.5px solid #e0e0e0; border-radius:8px; background:#fff; overflow:hidden; transition:border-color 0.2s; }
+    .amt-input:focus-within { border-color:#3f51b5; }
+    .amt-input span { padding:0 8px; color:#9e9e9e; font-weight:600; font-size:0.85rem; }
+    .amt-input input { border:none; outline:none; padding:7px 8px 7px 0; flex:1; font-size:0.85rem; background:transparent; font-family:inherit; }
+    .add-form-actions { display:flex; justify-content:flex-end; }
+    .af-save-btn { display:flex; align-items:center; gap:6px; background:linear-gradient(135deg,#1b5e20,#43a047); color:#fff; border:none; border-radius:8px; padding:8px 18px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+    .af-save-btn:disabled { opacity:0.6; cursor:not-allowed; }
+    .af-save-btn mat-icon { font-size:16px; width:16px; height:16px; }
 
-    /* Stats */
-    .stats-row { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
-    .stat-pill { display:flex; align-items:center; gap:6px; background:#e8eaf6; border-radius:20px; padding:6px 14px; font-size:0.85rem; font-weight:600; color:#3f51b5; }
-    .stat-pill.total { background:#e8f5e9; color:#2e7d32; }
-    .stat-pill mat-icon { font-size:16px; width:16px; height:16px; }
-
-    /* Table */
-    .table-card { background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,0.07); overflow:hidden; }
-    .fee-table { width:100%; border-collapse:collapse; }
-    .fee-table th { background:#f8f9ff; padding:12px 16px; text-align:left; font-size:0.78rem; font-weight:700; color:#3f51b5; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #e8eaf6; }
-    .fee-table td { padding:12px 16px; font-size:0.9rem; color:#444; border-bottom:1px solid #f5f5f5; }
-    .fee-table tr:last-child td { border-bottom:none; }
-    .fee-table tr:hover td { background:#fafeff; }
-    .class-badge { background:#e8eaf6; color:#3f51b5; border-radius:8px; padding:3px 10px; font-size:0.82rem; font-weight:600; }
-    .fee-type-badge { border-radius:8px; padding:3px 10px; font-size:0.8rem; font-weight:600; }
+    /* Fee rows */
+    .fees-list { display:flex; flex-direction:column; }
+    .fee-row { display:flex; align-items:center; justify-content:space-between; padding:11px 16px; border-bottom:1px solid #f5f5f5; transition:background 0.15s; }
+    .fee-row:last-child { border-bottom:none; }
+    .fee-row:hover { background:#fafbff; }
+    .fee-row-left { display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
+    .fee-badge { display:flex; align-items:center; gap:5px; border-radius:8px; padding:4px 10px; font-size:0.8rem; font-weight:700; flex-shrink:0; }
+    .fee-badge mat-icon { font-size:14px; width:14px; height:14px; }
     .ft-tuition  { background:#e3f2fd; color:#1565c0; }
     .ft-exam     { background:#f3e5f5; color:#6a1b9a; }
     .ft-library  { background:#e8f5e9; color:#2e7d32; }
     .ft-sports   { background:#fff8e1; color:#e65100; }
     .ft-transport{ background:#fce4ec; color:#880e4f; }
     .ft-other    { background:#f5f5f5; color:#555; }
-    .amount-col  { font-weight:700; color:#2e7d32; font-size:1rem; }
-    .desc-col    { color:#888; font-size:0.85rem; }
-    .row-actions { display:flex; gap:6px; }
-    .edit-btn { background:#e8eaf6; color:#3f51b5; border:none; border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s; }
-    .edit-btn:hover { background:#c5cae9; }
-    .del-btn { background:#ffebee; color:#c62828; border:none; border-radius:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s; }
-    .del-btn:hover { background:#ffcdd2; }
-    .edit-btn mat-icon, .del-btn mat-icon { font-size:16px; width:16px; height:16px; }
+    .fee-desc { font-size:0.78rem; color:#aaa; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .fee-row-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .fee-amount { font-size:1rem; font-weight:800; color:#1b5e20; min-width:80px; text-align:right; }
+    .action-btn { width:30px; height:30px; border:none; border-radius:7px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s; }
+    .action-btn mat-icon { font-size:15px; width:15px; height:15px; }
+    .action-btn.edit { background:#e8eaf6; color:#3f51b5; }
+    .action-btn.edit:hover { background:#c5cae9; }
+    .action-btn.del { background:#ffebee; color:#c62828; }
+    .action-btn.del:hover { background:#ffcdd2; }
 
-    .loading { padding:40px; text-align:center; color:#999; }
-    .empty { padding:48px; text-align:center; color:#bbb; }
-    .empty mat-icon { font-size:48px; height:48px; width:48px; display:block; margin:0 auto 10px; }
+    /* Inline Edit */
+    .inline-edit-row { display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap; padding:4px 0; }
+    .ie-select { border:1.5px solid #3f51b5; border-radius:7px; padding:6px 8px; font-size:0.82rem; outline:none; background:#f8f9ff; font-family:inherit; }
+    .ie-amt { display:flex; align-items:center; border:1.5px solid #3f51b5; border-radius:7px; background:#f8f9ff; overflow:hidden; }
+    .ie-amt span { padding:0 6px; color:#9e9e9e; font-size:0.82rem; font-weight:600; }
+    .ie-amt input { border:none; outline:none; padding:6px 6px 6px 0; width:80px; font-size:0.85rem; background:transparent; font-family:inherit; }
+    .ie-desc { flex:1; border:1.5px solid #3f51b5; border-radius:7px; padding:6px 10px; font-size:0.82rem; outline:none; background:#f8f9ff; font-family:inherit; min-width:80px; }
+    .ie-actions { display:flex; gap:6px; }
+    .ie-save { width:30px; height:30px; background:#1b5e20; color:#fff; border:none; border-radius:7px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s; }
+    .ie-save:hover { background:#2e7d32; }
+    .ie-save:disabled { opacity:0.6; cursor:not-allowed; }
+    .ie-cancel { width:30px; height:30px; background:#f5f5f5; color:#666; border:none; border-radius:7px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    .ie-save mat-icon, .ie-cancel mat-icon { font-size:16px; width:16px; height:16px; }
+
+    /* Empty inside card */
+    .cc-empty { display:flex; align-items:center; gap:8px; padding:16px 18px; color:#bbb; font-size:0.85rem; }
+    .cc-empty mat-icon { font-size:18px; width:18px; height:18px; color:#e0e0e0; }
   `]
 })
 export class FeeStructureComponent implements OnInit {
   classes: any[] = [];
-  structures: any[] = [];
+  classCards: ClassCard[] = [];
   loading = false;
-  showForm = false;
-  saving = false;
-  editId: number | null = null;
-  selectedClassId = '';
   filterYear = '';
 
-  form = { classId: '', feeType: '', amount: '', academicYear: '', description: '' };
+  // Inline edit state
+  editingId: number | null = null;
+  editForm = { feeType: '', amount: '', description: '' };
+  editSaving = false;
 
   private api = 'http://localhost:8080/api/admin/fee';
   private adminApi = 'http://localhost:8080/api/admin';
@@ -236,81 +301,156 @@ export class FeeStructureComponent implements OnInit {
   constructor(private http: HttpClient, private snack: MatSnackBar) {}
 
   ngOnInit() {
+    const y = new Date().getFullYear();
+    this.filterYear = `${y}-${String(y + 1).slice(2)}`;
     this.http.get<any[]>(`${this.adminApi}/classes`).subscribe(c => {
       this.classes = c;
-      // Set default year
-      const y = new Date().getFullYear();
-      this.filterYear = `${y}-${String(y+1).slice(2)}`;
-      this.form.academicYear = this.filterYear;
       this.loadStructures();
     });
   }
 
-  onFilterChange() { this.loadStructures(); }
-
   loadStructures() {
     this.loading = true;
-    let url = `${this.api}/structures`;
-    if (this.selectedClassId) url = `${this.api}/structures/class/${this.selectedClassId}`;
     const params: any = {};
     if (this.filterYear) params.academicYear = this.filterYear;
-    this.http.get<any[]>(url, { params }).subscribe({
-      next: s => { this.structures = s; this.loading = false; },
+    this.http.get<FeeRow[]>(`${this.api}/structures`, { params }).subscribe({
+      next: rows => {
+        this.buildCards(rows);
+        this.loading = false;
+      },
       error: () => { this.loading = false; }
     });
   }
 
-  getTotalAmount(): number {
-    return this.structures.reduce((s, f) => s + (f.amount || 0), 0);
+  buildCards(rows: FeeRow[]) {
+    const map = new Map<number, ClassCard>();
+    rows.forEach(r => {
+      if (!map.has(r.classId)) {
+        map.set(r.classId, { classId: r.classId, className: r.className, fees: [], showAddForm: false, addForm: this.freshAddForm(), addSaving: false });
+      }
+      map.get(r.classId)!.fees.push(r);
+    });
+    // Sort by class name numerically
+    this.classCards = Array.from(map.values()).sort((a, b) => +a.className - +b.className);
   }
 
-  getFeeLabel(type: string): string {
-    const labels: any = { TUITION:'Tuition', EXAM:'Exam', LIBRARY:'Library', SPORTS:'Sports', TRANSPORT:'Transport', OTHER:'Other' };
-    return labels[type] || type;
+  freshAddForm() {
+    return { feeType: '', amount: '', description: '', academicYear: this.filterYear };
   }
 
-  saveStructure() {
-    if (!this.form.classId || !this.form.feeType || !this.form.amount || !this.form.academicYear) {
-      this.snack.open('Please fill all required fields', 'Close', { duration: 3000 });
+  getClassesWithNoFee(): any[] {
+    const ids = new Set(this.classCards.map(c => c.classId));
+    return this.classes.filter(c => !ids.has(c.id));
+  }
+
+  initCard(c: any) {
+    const card: ClassCard = { classId: c.id, className: c.className, fees: [], showAddForm: false, addForm: this.freshAddForm(), addSaving: false };
+    this.classCards.push(card);
+    this.classCards.sort((a, b) => +a.className - +b.className);
+  }
+
+  getCard(classId: number): ClassCard | undefined {
+    return this.classCards.find(c => c.classId === classId);
+  }
+
+  toggleAddForm(card: ClassCard) {
+    card.showAddForm = !card.showAddForm;
+    if (card.showAddForm) {
+      card.addForm = this.freshAddForm();
+      this.cancelEdit();
+    }
+  }
+
+  addFee(card: ClassCard) {
+    const f = card.addForm;
+    if (!f.feeType || !f.amount) {
+      this.snack.open('Fee type and amount are required', 'Close', { duration: 3000 });
       return;
     }
-    this.saving = true;
-    const req = this.editId
-      ? this.http.put(`${this.api}/structures/${this.editId}`, this.form)
-      : this.http.post(`${this.api}/structures`, this.form);
-    req.subscribe({
-      next: () => {
-        this.snack.open(this.editId ? 'Updated!' : 'Fee structure added!', 'Close', { duration: 2500 });
-        this.saving = false;
-        this.cancelEdit();
-        this.loadStructures();
+    card.addSaving = true;
+    this.http.post<FeeRow>(`${this.api}/structures`, {
+      classId: card.classId,
+      feeType: f.feeType,
+      amount: f.amount,
+      academicYear: this.filterYear || f.academicYear,
+      description: f.description || ''
+    }).subscribe({
+      next: newRow => {
+        card.fees.push(newRow);
+        card.showAddForm = false;
+        card.addForm = this.freshAddForm();
+        card.addSaving = false;
+        this.snack.open('Fee added!', 'Close', { duration: 2000 });
       },
-      error: (err) => {
-        this.saving = false;
-        this.snack.open(err.error?.message || 'Error saving', 'Close', { duration: 3000 });
+      error: err => {
+        card.addSaving = false;
+        this.snack.open(err.error?.message || 'Error adding fee', 'Close', { duration: 3000 });
       }
     });
   }
 
-  startEdit(s: any) {
-    this.editId = s.id;
-    this.form = { classId: s.classId, feeType: s.feeType, amount: s.amount, academicYear: s.academicYear, description: s.description || '' };
-    this.showForm = true;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  startInlineEdit(fee: FeeRow) {
+    this.editingId = fee.id;
+    this.editForm = { feeType: fee.feeType, amount: String(fee.amount), description: fee.description || '' };
   }
 
-  cancelEdit() {
-    this.editId = null;
-    this.showForm = false;
-    const y = new Date().getFullYear();
-    this.form = { classId: '', feeType: '', amount: '', academicYear: `${y}-${String(y+1).slice(2)}`, description: '' };
+  cancelEdit() { this.editingId = null; }
+
+  saveInlineEdit(id: number, card: ClassCard) {
+    if (!this.editForm.feeType || !this.editForm.amount) {
+      this.snack.open('Fee type and amount required', 'Close', { duration: 2500 });
+      return;
+    }
+    this.editSaving = true;
+    this.http.put<FeeRow>(`${this.api}/structures/${id}`, this.editForm).subscribe({
+      next: updated => {
+        const idx = card.fees.findIndex(f => f.id === id);
+        if (idx >= 0) card.fees[idx] = updated;
+        this.cancelEdit();
+        this.editSaving = false;
+        this.snack.open('Updated!', 'Close', { duration: 2000 });
+      },
+      error: err => {
+        this.editSaving = false;
+        this.snack.open(err.error?.message || 'Error updating', 'Close', { duration: 3000 });
+      }
+    });
   }
 
-  deleteStructure(id: number) {
-    if (!confirm('Delete this fee structure?')) return;
+  deleteFee(id: number, card: ClassCard) {
+    if (!confirm('Delete this fee?')) return;
     this.http.delete(`${this.api}/structures/${id}`).subscribe({
-      next: () => { this.snack.open('Deleted.', 'Close', { duration: 2000 }); this.loadStructures(); },
+      next: () => {
+        card.fees = card.fees.filter(f => f.id !== id);
+        this.snack.open('Deleted.', 'Close', { duration: 2000 });
+        // Remove card if no fees left
+        if (card.fees.length === 0) {
+          this.classCards = this.classCards.filter(c => c.classId !== card.classId);
+        }
+      },
       error: () => this.snack.open('Error deleting', 'Close', { duration: 2500 })
     });
+  }
+
+  getClassTotal(card: ClassCard): number {
+    return card.fees.reduce((s, f) => s + (f.amount || 0), 0);
+  }
+
+  getTotalFeeTypes(): number {
+    return this.classCards.reduce((s, c) => s + c.fees.length, 0);
+  }
+
+  getGrandTotal(): number {
+    return this.classCards.reduce((s, c) => s + this.getClassTotal(c), 0);
+  }
+
+  getFeeLabel(type: string): string {
+    const m: any = { TUITION: 'Tuition', EXAM: 'Exam', LIBRARY: 'Library', SPORTS: 'Sports', TRANSPORT: 'Transport', OTHER: 'Other' };
+    return m[type] || type;
+  }
+
+  getFeeIcon(type: string): string {
+    const m: any = { TUITION: 'school', EXAM: 'assignment', LIBRARY: 'menu_book', SPORTS: 'sports_soccer', TRANSPORT: 'directions_bus', OTHER: 'label' };
+    return m[type] || 'label';
   }
 }
