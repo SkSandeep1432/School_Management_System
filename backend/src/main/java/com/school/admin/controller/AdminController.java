@@ -18,16 +18,22 @@ import com.school.admin.dto.response.StudentResponse;
 import com.school.admin.dto.response.SubjectResponse;
 import com.school.admin.dto.response.TeacherAssignmentResponse;
 import com.school.admin.dto.response.TeacherResponse;
+import com.school.admin.entity.Attendance;
 import com.school.admin.entity.Classes;
+import com.school.admin.entity.ClassSubject;
 import com.school.admin.entity.Section;
+import com.school.admin.entity.Student;
 import com.school.admin.entity.Subject;
 import com.school.admin.exception.ResourceNotFoundException;
+import com.school.admin.repository.AttendanceRepository;
 import com.school.admin.repository.ClassesRepository;
+import com.school.admin.repository.ClassSubjectRepository;
 import com.school.admin.repository.MarksRepository;
 import com.school.admin.repository.SectionRepository;
 import com.school.admin.repository.StudentRepository;
 import com.school.admin.repository.SubjectRepository;
 import com.school.admin.repository.TeacherAssignmentRepository;
+import java.time.LocalDate;
 import com.school.admin.service.AnnouncementService;
 import com.school.admin.service.ExamService;
 import com.school.admin.service.ReportService;
@@ -66,6 +72,8 @@ public class AdminController {
     private final TeacherAssignmentRepository teacherAssignmentRepository;
     private final StudentRepository studentRepository;
     private final AnnouncementService announcementService;
+    private final ClassSubjectRepository classSubjectRepository;
+    private final AttendanceRepository attendanceRepository;
 
     public AdminController(StudentService studentService,
                            TeacherService teacherService,
@@ -77,7 +85,9 @@ public class AdminController {
                            MarksRepository marksRepository,
                            TeacherAssignmentRepository teacherAssignmentRepository,
                            StudentRepository studentRepository,
-                           AnnouncementService announcementService) {
+                           AnnouncementService announcementService,
+                           ClassSubjectRepository classSubjectRepository,
+                           AttendanceRepository attendanceRepository) {
         this.studentService = studentService;
         this.teacherService = teacherService;
         this.examService = examService;
@@ -89,6 +99,8 @@ public class AdminController {
         this.teacherAssignmentRepository = teacherAssignmentRepository;
         this.studentRepository = studentRepository;
         this.announcementService = announcementService;
+        this.classSubjectRepository = classSubjectRepository;
+        this.attendanceRepository = attendanceRepository;
     }
 
     // ===================== STUDENT ENDPOINTS =====================
@@ -391,5 +403,100 @@ public class AdminController {
         String message = body.getOrDefault("message", "");
         announcementService.sendToTeachers(subject, message);
         return ResponseEntity.ok(new MessageResponse("Announcement sent to all teachers."));
+    }
+
+    // ===================== CLASS-SUBJECT MAPPING ENDPOINTS =====================
+
+    @GetMapping("/classes/{classId}/subjects")
+    public ResponseEntity<List<Map<String, Object>>> getSubjectsForClass(@PathVariable Long classId) {
+        List<ClassSubject> cs = classSubjectRepository.findByClassesId(classId);
+        List<Map<String, Object>> result = cs.stream().map(c -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", c.getId());
+            m.put("classId", c.getClasses().getId());
+            m.put("className", c.getClasses().getClassName());
+            m.put("subjectId", c.getSubject().getId());
+            m.put("subjectName", c.getSubject().getSubjectName());
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/classes/{classId}/subjects")
+    public ResponseEntity<Map<String, Object>> assignSubjectToClass(
+            @PathVariable Long classId,
+            @RequestBody Map<String, Long> body) {
+        Long subjectId = body.get("subjectId");
+        Classes cls = classesRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Class not found: " + classId));
+        Subject subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found: " + subjectId));
+        if (classSubjectRepository.existsByClassesIdAndSubjectId(classId, subjectId)) {
+            throw new com.school.admin.exception.BadRequestException("Subject already assigned to this class.");
+        }
+        ClassSubject cs = new ClassSubject(cls, subject);
+        classSubjectRepository.save(cs);
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("id", cs.getId());
+        m.put("classId", classId);
+        m.put("className", cls.getClassName());
+        m.put("subjectId", subjectId);
+        m.put("subjectName", subject.getSubjectName());
+        return ResponseEntity.ok(m);
+    }
+
+    @DeleteMapping("/classes/{classId}/subjects/{subjectId}")
+    public ResponseEntity<MessageResponse> removeSubjectFromClass(
+            @PathVariable Long classId, @PathVariable Long subjectId) {
+        classSubjectRepository.deleteByClassesIdAndSubjectId(classId, subjectId);
+        return ResponseEntity.ok(new MessageResponse("Subject removed from class."));
+    }
+
+    // ===================== ADMIN ATTENDANCE ENDPOINTS =====================
+
+    @GetMapping("/attendance")
+    public ResponseEntity<List<Map<String, Object>>> getAttendanceByClassAndDate(
+            @RequestParam Long classId,
+            @RequestParam Long sectionId,
+            @RequestParam(required = false) String date) {
+        LocalDate localDate = (date != null && !date.isBlank()) ? LocalDate.parse(date) : LocalDate.now();
+        List<Attendance> records = attendanceRepository.findByClassesIdAndSectionIdAndAttendanceDate(classId, sectionId, localDate);
+        List<Map<String, Object>> result = records.stream().map(a -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", a.getId());
+            m.put("studentId", a.getStudent().getId());
+            m.put("studentName", a.getStudent().getFullName());
+            m.put("rollNumber", a.getStudent().getRollNumber());
+            m.put("status", a.getStatus().name());
+            m.put("attendanceDate", a.getAttendanceDate().toString());
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/attendance/summary")
+    public ResponseEntity<List<Map<String, Object>>> getAttendanceSummary(
+            @RequestParam Long classId,
+            @RequestParam Long sectionId) {
+        List<Student> students = studentRepository.findByClassesIdAndSectionId(classId, sectionId);
+        List<Map<String, Object>> result = students.stream().map(s -> {
+            List<Attendance> records = attendanceRepository.findByStudentId(s.getId());
+            long total = records.size();
+            long present = records.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.PRESENT).count();
+            long absent = records.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.ABSENT).count();
+            long late = records.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.LATE).count();
+            double pct = total > 0 ? Math.round(((double)(present + late) / total) * 10000.0) / 100.0 : 0.0;
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("studentId", s.getId());
+            m.put("studentName", s.getFullName());
+            m.put("rollNumber", s.getRollNumber());
+            m.put("totalDays", total);
+            m.put("present", present);
+            m.put("absent", absent);
+            m.put("late", late);
+            m.put("percentage", pct);
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 }

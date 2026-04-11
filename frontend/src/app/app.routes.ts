@@ -28,6 +28,8 @@ export const routes: Routes = [
       { path: 'class-schedule', loadComponent: () => import('./features/admin/class-schedule/class-schedule.component').then(m => m.ClassScheduleComponent) },
       { path: 'teacher-progress', loadComponent: () => import('./features/admin/teacher-progress/teacher-progress.component').then(m => m.TeacherProgressComponent) },
       { path: 'announcements', loadComponent: () => import('./features/admin/announcements/announcements.component').then(m => m.AnnouncementsComponent) },
+      { path: 'attendance', loadComponent: () => import('./features/admin/attendance/admin-attendance.component').then(m => m.AdminAttendanceComponent) },
+      { path: 'class-subjects', loadComponent: () => import('./features/admin/class-subjects/class-subjects.component').then(m => m.ClassSubjectsComponent) },
     ]
   },
   {

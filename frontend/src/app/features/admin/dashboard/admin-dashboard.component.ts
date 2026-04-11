@@ -153,6 +153,22 @@ import { ExamService } from '../../../core/services/exam.service';
             <p>Send email to all teachers only</p>
           </mat-card-content>
         </mat-card>
+
+        <mat-card class="action-card attendance-card" routerLink="/admin/attendance">
+          <mat-card-content>
+            <mat-icon class="action-icon">fact_check</mat-icon>
+            <h3>Attendance Overview</h3>
+            <p>View class &amp; student attendance</p>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="action-card class-subjects-card" routerLink="/admin/class-subjects">
+          <mat-card-content>
+            <mat-icon class="action-icon">library_books</mat-icon>
+            <h3>Class Subjects</h3>
+            <p>Manage subjects per class</p>
+          </mat-card-content>
+        </mat-card>
       </div>
     </div>
   `,
@@ -211,6 +227,10 @@ import { ExamService } from '../../../core/services/exam.service';
     .announce-all-card .action-icon { color: #e65100; }
     .announce-teachers-card { border-left: 4px solid #c62828; }
     .announce-teachers-card .action-icon { color: #c62828; }
+    .attendance-card { border-left: 4px solid #00897b; }
+    .attendance-card .action-icon { color: #00897b; }
+    .class-subjects-card { border-left: 4px solid #5c6bc0; }
+    .class-subjects-card .action-icon { color: #5c6bc0; }
   `]
 })
 export class AdminDashboardComponent implements OnInit {
