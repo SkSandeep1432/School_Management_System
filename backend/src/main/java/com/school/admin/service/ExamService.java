@@ -13,6 +13,7 @@ import com.school.admin.exception.ResourceNotFoundException;
 import com.school.admin.repository.ExamRepository;
 import com.school.admin.repository.MarksRepository;
 import com.school.admin.repository.NotificationRepository;
+import com.school.admin.repository.ReportDispatchRepository;
 import com.school.admin.repository.StudentRepository;
 import com.school.admin.repository.TeacherAssignmentRepository;
 import com.school.admin.repository.TeacherRepository;
@@ -37,6 +38,7 @@ public class ExamService {
     private final AnnouncementService announcementService;
     private final TeacherRepository teacherRepository;
     private final NotificationRepository notificationRepository;
+    private final ReportDispatchRepository reportDispatchRepository;
 
     public ExamService(ExamRepository examRepository,
                        MarksRepository marksRepository,
@@ -44,7 +46,8 @@ public class ExamService {
                        TeacherAssignmentRepository teacherAssignmentRepository,
                        AnnouncementService announcementService,
                        TeacherRepository teacherRepository,
-                       NotificationRepository notificationRepository) {
+                       NotificationRepository notificationRepository,
+                       ReportDispatchRepository reportDispatchRepository) {
         this.examRepository = examRepository;
         this.marksRepository = marksRepository;
         this.studentRepository = studentRepository;
@@ -52,6 +55,7 @@ public class ExamService {
         this.announcementService = announcementService;
         this.teacherRepository = teacherRepository;
         this.notificationRepository = notificationRepository;
+        this.reportDispatchRepository = reportDispatchRepository;
     }
 
     @Transactional
@@ -183,6 +187,7 @@ public class ExamService {
     public void deleteExam(Long id) {
         Exam exam = examRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Exam not found with id: " + id));
+        reportDispatchRepository.deleteByExamId(id);
         marksRepository.deleteByExamId(id);
         examRepository.delete(exam);
     }

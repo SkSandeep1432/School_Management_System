@@ -10,4 +10,6 @@ import java.util.List;
 public interface ReportDispatchRepository extends JpaRepository<ReportDispatch, Long> {
 
     List<ReportDispatch> findByExamIdAndStudentId(Long examId, Long studentId);
+
+    void deleteByExamId(Long examId);
 }
