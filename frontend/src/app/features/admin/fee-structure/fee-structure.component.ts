@@ -70,25 +70,29 @@ interface ClassCard { classId: number; className: string; fees: FeeRow[]; showAd
           <!-- Add Fee Form (per class) -->
           <div class="add-form" *ngIf="card.showAddForm">
             <div class="add-form-grid">
-              <div class="af-field">
-                <label>Fee Type *</label>
-                <select [(ngModel)]="card.addForm.feeType">
-                  <option value="">Select type</option>
-                  <option value="TUITION">Tuition Fee</option>
-                  <option value="EXAM">Exam Fee</option>
-                  <option value="LIBRARY">Library Fee</option>
-                  <option value="SPORTS">Sports Fee</option>
-                  <option value="TRANSPORT">Transport Fee</option>
-                  <option value="OTHER">Other</option>
-                </select>
+              <!-- Row 1: Fee Type + Amount -->
+              <div class="add-form-row">
+                <div class="af-field">
+                  <label>Fee Type *</label>
+                  <select [(ngModel)]="card.addForm.feeType">
+                    <option value="">Select type</option>
+                    <option value="TUITION">Tuition Fee</option>
+                    <option value="EXAM">Exam Fee</option>
+                    <option value="LIBRARY">Library Fee</option>
+                    <option value="SPORTS">Sports Fee</option>
+                    <option value="TRANSPORT">Transport Fee</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+                <div class="af-field">
+                  <label>Amount (₹) *</label>
+                  <div class="amt-input"><span>₹</span><input type="number" [(ngModel)]="card.addForm.amount" placeholder="e.g. 5000"></div>
+                </div>
               </div>
-              <div class="af-field">
-                <label>Amount (₹) *</label>
-                <div class="amt-input"><span>₹</span><input type="number" [(ngModel)]="card.addForm.amount" placeholder="e.g. 5000"></div>
-              </div>
-              <div class="af-field">
+              <!-- Row 2: Description full width -->
+              <div class="af-field full">
                 <label>Description</label>
-                <input type="text" [(ngModel)]="card.addForm.description" placeholder="Optional">
+                <input type="text" [(ngModel)]="card.addForm.description" placeholder="Optional note (e.g. Per semester)">
               </div>
             </div>
             <div class="add-form-actions">
@@ -223,19 +227,22 @@ interface ClassCard { classId: number; className: string; fees: FeeRow[]; showAd
     .cc-add-btn mat-icon { font-size:16px; width:16px; height:16px; }
 
     /* Add form per card */
-    .add-form { padding:14px 16px; background:#fffde7; border-bottom:1px solid #fff9c4; }
-    .add-form-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px; }
-    .af-field { display:flex; flex-direction:column; gap:4px; }
+    .add-form { padding:14px 16px; background:#fffde7; border-bottom:1px solid #fff9c4; box-sizing:border-box; }
+    .add-form-grid { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+    .add-form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .af-field { display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .af-field.full { grid-column:1/-1; }
     .af-field label { font-size:0.75rem; font-weight:700; color:#555; }
     .af-field select, .af-field input {
       border:1.5px solid #e0e0e0; border-radius:8px; padding:7px 10px;
-      font-size:0.85rem; outline:none; background:#fff; font-family:inherit; transition:border-color 0.2s;
+      font-size:0.85rem; outline:none; background:#fff; font-family:inherit;
+      transition:border-color 0.2s; box-sizing:border-box; width:100%; min-width:0;
     }
     .af-field select:focus, .af-field input:focus { border-color:#3f51b5; }
     .amt-input { display:flex; align-items:center; border:1.5px solid #e0e0e0; border-radius:8px; background:#fff; overflow:hidden; transition:border-color 0.2s; }
     .amt-input:focus-within { border-color:#3f51b5; }
-    .amt-input span { padding:0 8px; color:#9e9e9e; font-weight:600; font-size:0.85rem; }
-    .amt-input input { border:none; outline:none; padding:7px 8px 7px 0; flex:1; font-size:0.85rem; background:transparent; font-family:inherit; }
+    .amt-input span { padding:0 8px; color:#9e9e9e; font-weight:600; font-size:0.85rem; flex-shrink:0; }
+    .amt-input input { border:none; outline:none; padding:7px 8px 7px 0; flex:1; font-size:0.85rem; background:transparent; font-family:inherit; min-width:0; width:100%; }
     .add-form-actions { display:flex; justify-content:flex-end; }
     .af-save-btn { display:flex; align-items:center; gap:6px; background:linear-gradient(135deg,#1b5e20,#43a047); color:#fff; border:none; border-radius:8px; padding:8px 18px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
     .af-save-btn:disabled { opacity:0.6; cursor:not-allowed; }
@@ -266,12 +273,12 @@ interface ClassCard { classId: number; className: string; fees: FeeRow[]; showAd
     .action-btn.del:hover { background:#ffcdd2; }
 
     /* Inline Edit */
-    .inline-edit-row { display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap; padding:4px 0; }
-    .ie-select { border:1.5px solid #3f51b5; border-radius:7px; padding:6px 8px; font-size:0.82rem; outline:none; background:#f8f9ff; font-family:inherit; }
-    .ie-amt { display:flex; align-items:center; border:1.5px solid #3f51b5; border-radius:7px; background:#f8f9ff; overflow:hidden; }
-    .ie-amt span { padding:0 6px; color:#9e9e9e; font-size:0.82rem; font-weight:600; }
-    .ie-amt input { border:none; outline:none; padding:6px 6px 6px 0; width:80px; font-size:0.85rem; background:transparent; font-family:inherit; }
-    .ie-desc { flex:1; border:1.5px solid #3f51b5; border-radius:7px; padding:6px 10px; font-size:0.82rem; outline:none; background:#f8f9ff; font-family:inherit; min-width:80px; }
+    .inline-edit-row { display:grid; grid-template-columns:auto auto 1fr auto; align-items:center; gap:8px; width:100%; min-width:0; padding:4px 0; box-sizing:border-box; }
+    .ie-select { border:1.5px solid #3f51b5; border-radius:7px; padding:6px 8px; font-size:0.82rem; outline:none; background:#f8f9ff; font-family:inherit; min-width:0; }
+    .ie-amt { display:flex; align-items:center; border:1.5px solid #3f51b5; border-radius:7px; background:#f8f9ff; overflow:hidden; min-width:0; }
+    .ie-amt span { padding:0 6px; color:#9e9e9e; font-size:0.82rem; font-weight:600; flex-shrink:0; }
+    .ie-amt input { border:none; outline:none; padding:6px 6px 6px 0; width:72px; font-size:0.85rem; background:transparent; font-family:inherit; min-width:0; }
+    .ie-desc { border:1.5px solid #3f51b5; border-radius:7px; padding:6px 10px; font-size:0.82rem; outline:none; background:#f8f9ff; font-family:inherit; min-width:0; width:100%; box-sizing:border-box; }
     .ie-actions { display:flex; gap:6px; }
     .ie-save { width:30px; height:30px; background:#1b5e20; color:#fff; border:none; border-radius:7px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s; }
     .ie-save:hover { background:#2e7d32; }
