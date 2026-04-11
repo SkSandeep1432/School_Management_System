@@ -87,8 +87,8 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
                 </div>
                 <div class="fee-box" [ngClass]="selectedStudent.balance > 0 ? 'fb-balance' : 'fb-clear'">
                   <mat-icon>{{ selectedStudent.balance > 0 ? 'warning' : 'task_alt' }}</mat-icon>
-                  <div class="fb-num">&#8377;{{ selectedStudent.balance | number:'1.0-0' }}</div>
-                  <div class="fb-lbl">{{ selectedStudent.balance > 0 ? 'Balance' : 'Fully Paid' }}</div>
+                  <div class="fb-num">&#8377;{{ (selectedStudent.balance > 0 ? selectedStudent.balance : selectedStudent.totalPaid) | number:'1.0-0' }}</div>
+                  <div class="fb-lbl">{{ selectedStudent.balance > 0 ? 'Balance Due' : 'Fully Paid' }}</div>
                 </div>
                 <div class="fee-box fb-status">
                   <mat-icon>{{ getStatusIcon(selectedStudent.status) }}</mat-icon>
