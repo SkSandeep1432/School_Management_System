@@ -73,12 +73,26 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
                 <button class="change-btn" (click)="clearStudent()"><mat-icon>close</mat-icon> Change</button>
               </div>
 
+              <!-- Carry-Forward Alert Banner -->
+              <div class="carry-alert" *ngIf="selectedStudent.carryForward > 0">
+                <mat-icon>history</mat-icon>
+                <div class="carry-alert-text">
+                  <strong>Previous Year Balance Added</strong>
+                  <span>₹{{ selectedStudent.classFee | number:'1.0-0' }} ({{ selectedStudent.academicYear }} class fee)
+                    + ₹{{ selectedStudent.carryForward | number:'1.0-0' }} (unpaid from previous year)
+                    = <strong>₹{{ selectedStudent.totalDue | number:'1.0-0' }}</strong> Total Due</span>
+                </div>
+              </div>
+
               <!-- Fee Summary Boxes -->
               <div class="fee-summary-boxes">
                 <div class="fee-box fb-due">
                   <mat-icon>receipt_long</mat-icon>
                   <div class="fb-num">&#8377;{{ selectedStudent.totalDue | number:'1.0-0' }}</div>
                   <div class="fb-lbl">Total Due</div>
+                  <div class="fb-sub" *ngIf="selectedStudent.carryForward > 0">
+                    incl. ₹{{ selectedStudent.carryForward | number:'1.0-0' }} carry fwd
+                  </div>
                 </div>
                 <div class="fee-box fb-paid">
                   <mat-icon>check_circle</mat-icon>
@@ -318,6 +332,13 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
     .change-btn { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:6px 12px; font-size:0.82rem; cursor:pointer; }
     .change-btn mat-icon { font-size:16px; }
 
+    /* Carry-forward alert */
+    .carry-alert { display:flex; align-items:flex-start; gap:12px; background:linear-gradient(135deg,#fff3e0,#ffe0b2); border-left:4px solid #e65100; border-radius:0; padding:14px 20px; margin-bottom:0; }
+    .carry-alert mat-icon { color:#e65100; font-size:22px; width:22px; height:22px; flex-shrink:0; margin-top:2px; }
+    .carry-alert-text { display:flex; flex-direction:column; gap:3px; }
+    .carry-alert-text strong { font-size:0.88rem; color:#bf360c; font-weight:800; }
+    .carry-alert-text span { font-size:0.82rem; color:#6d4c41; line-height:1.5; }
+
     /* Fee Summary Boxes */
     .fee-summary-boxes { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0; }
     .fee-box { display:flex; flex-direction:column; align-items:center; padding:20px 16px; border-right:1px solid #f0f0f0; text-align:center; }
@@ -325,6 +346,7 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
     .fee-box mat-icon { font-size:24px; width:24px; height:24px; margin-bottom:8px; }
     .fb-num { font-size:1.4rem; font-weight:800; margin-bottom:4px; }
     .fb-lbl { font-size:0.75rem; color:#999; font-weight:500; }
+    .fb-sub { font-size:0.7rem; color:#e65100; font-weight:600; margin-top:2px; }
     .fb-due mat-icon { color:#3f51b5; } .fb-due .fb-num { color:#1a237e; }
     .fb-paid mat-icon { color:#2e7d32; } .fb-paid .fb-num { color:#1b5e20; }
     .fb-balance mat-icon { color:#e65100; } .fb-balance .fb-num { color:#bf360c; }
