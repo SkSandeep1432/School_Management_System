@@ -146,6 +146,17 @@ import { ExamService } from '../../../core/services/exam.service';
           <mat-icon class="ac-arrow">chevron_right</mat-icon>
         </div>
 
+        <div class="action-card ac-money" routerLink="/admin/fee-structure">
+          <div class="ac-icon"><mat-icon>account_balance</mat-icon></div>
+          <div class="ac-body"><div class="ac-title">Fee Structure</div><div class="ac-sub">Set fees per class</div></div>
+          <mat-icon class="ac-arrow">chevron_right</mat-icon>
+        </div>
+        <div class="action-card ac-pay" routerLink="/admin/fee-payments">
+          <div class="ac-icon"><mat-icon>payments</mat-icon></div>
+          <div class="ac-body"><div class="ac-title">Fee Payments</div><div class="ac-sub">Record &amp; track payments</div></div>
+          <mat-icon class="ac-arrow">chevron_right</mat-icon>
+        </div>
+
       </div>
     </div>
   `,
@@ -215,6 +226,8 @@ import { ExamService } from '../../../core/services/exam.service';
     .ac-pink    { background:#fce4ec; } .ac-pink    .ac-icon { background:linear-gradient(135deg,#880e4f,#ec407a); }
     .ac-sea     { background:#e0f2f1; } .ac-sea     .ac-icon { background:linear-gradient(135deg,#004d40,#26a69a); }
     .ac-indigo2 { background:#e8eaf6; } .ac-indigo2 .ac-icon { background:linear-gradient(135deg,#283593,#5c6bc0); }
+    .ac-money  { background:#e8f5e9; } .ac-money  .ac-icon { background:linear-gradient(135deg,#1b5e20,#43a047); }
+    .ac-pay    { background:#e3f2fd; } .ac-pay    .ac-icon { background:linear-gradient(135deg,#0d47a1,#1976d2); }
   `]
 })
 export class AdminDashboardComponent implements OnInit {

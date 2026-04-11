@@ -30,6 +30,8 @@ export const routes: Routes = [
       { path: 'announcements', loadComponent: () => import('./features/admin/announcements/announcements.component').then(m => m.AnnouncementsComponent) },
       { path: 'attendance', loadComponent: () => import('./features/admin/attendance/admin-attendance.component').then(m => m.AdminAttendanceComponent) },
       { path: 'class-subjects', loadComponent: () => import('./features/admin/class-subjects/class-subjects.component').then(m => m.ClassSubjectsComponent) },
+      { path: 'fee-structure', loadComponent: () => import('./features/admin/fee-structure/fee-structure.component').then(m => m.FeeStructureComponent) },
+      { path: 'fee-payments', loadComponent: () => import('./features/admin/fee-payments/fee-payments.component').then(m => m.FeePaymentsComponent) },
     ]
   },
   {
