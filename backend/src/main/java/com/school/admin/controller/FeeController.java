@@ -10,6 +10,10 @@ import com.school.admin.repository.ClassesRepository;
 import com.school.admin.repository.FeePaymentRepository;
 import com.school.admin.repository.FeeStructureRepository;
 import com.school.admin.repository.StudentRepository;
+import com.school.admin.service.AnnouncementService;
+import com.school.admin.service.ReceiptPdfService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,19 +30,27 @@ import java.util.stream.Collectors;
 @PreAuthorize("hasRole('ADMIN')")
 public class FeeController {
 
+    private static final Logger logger = LoggerFactory.getLogger(FeeController.class);
+
     private final FeeStructureRepository feeStructureRepo;
     private final FeePaymentRepository feePaymentRepo;
     private final ClassesRepository classesRepo;
     private final StudentRepository studentRepo;
+    private final ReceiptPdfService receiptPdfService;
+    private final AnnouncementService announcementService;
 
     public FeeController(FeeStructureRepository feeStructureRepo,
                          FeePaymentRepository feePaymentRepo,
                          ClassesRepository classesRepo,
-                         StudentRepository studentRepo) {
+                         StudentRepository studentRepo,
+                         ReceiptPdfService receiptPdfService,
+                         AnnouncementService announcementService) {
         this.feeStructureRepo = feeStructureRepo;
         this.feePaymentRepo = feePaymentRepo;
         this.classesRepo = classesRepo;
         this.studentRepo = studentRepo;
+        this.receiptPdfService = receiptPdfService;
+        this.announcementService = announcementService;
     }
 
     // ── FEE STRUCTURE ──
@@ -128,7 +140,24 @@ public class FeeController {
                 + "-" + String.format("%05d", (long)(Math.random() * 90000) + 10000);
         fp.setReceiptNumber(receipt);
         FeePayment saved = feePaymentRepo.save(fp);
-        return ResponseEntity.ok(mapPayment(saved));
+        Map<String, Object> paymentData = mapPayment(saved);
+
+        // Send PDF receipt email to parent (async - don't fail if email fails)
+        String parentEmail = student.getParentEmail();
+        if (parentEmail != null && !parentEmail.isBlank()) {
+            try {
+                String className   = student.getClasses() != null ? student.getClasses().getClassName() : "";
+                String sectionName = student.getSection() != null ? student.getSection().getSectionName() : "";
+                byte[] pdfBytes = receiptPdfService.generateReceiptPdf(
+                        paymentData, student.getFullName(), student.getRollNumber(), className, sectionName);
+                announcementService.sendReceiptEmail(
+                        parentEmail, student.getFullName(), receipt, paymentData, pdfBytes);
+            } catch (Exception e) {
+                logger.warn("Could not send receipt email for {}: {}", receipt, e.getMessage());
+            }
+        }
+
+        return ResponseEntity.ok(paymentData);
     }
 
     @Transactional
