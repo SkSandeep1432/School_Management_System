@@ -455,7 +455,7 @@ export class PromotionComponent implements OnInit {
     this.promoting = true;
     const token = localStorage.getItem('token');
     const headers = new HttpHeaders({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' });
-    const body = { fromClassId: pair.fromClass.id, toClassId: pair.toClass?.id ?? null };
+    const body = { fromClassId: pair.fromClass.id, toClassId: pair.toClass?.id ?? null, newAcademicYear: this.newAcademicYear };
 
     this.http.post<PromoteResponse>(`${this.apiUrl}/promote`, body, { headers }).subscribe({
       next: resp => {

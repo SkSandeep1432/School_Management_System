@@ -25,9 +25,13 @@ import com.school.admin.entity.Section;
 import com.school.admin.entity.Student;
 import com.school.admin.entity.Subject;
 import com.school.admin.exception.ResourceNotFoundException;
+import com.school.admin.entity.FeeCarryForward;
 import com.school.admin.repository.AttendanceRepository;
 import com.school.admin.repository.ClassesRepository;
 import com.school.admin.repository.ClassSubjectRepository;
+import com.school.admin.repository.FeeCarryForwardRepository;
+import com.school.admin.repository.FeePaymentRepository;
+import com.school.admin.repository.FeeStructureRepository;
 import com.school.admin.repository.MarksRepository;
 import com.school.admin.repository.SectionRepository;
 import com.school.admin.repository.StudentRepository;
@@ -53,6 +57,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.school.admin.entity.FeeStructure;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -75,6 +81,9 @@ public class AdminController {
     private final AnnouncementService announcementService;
     private final ClassSubjectRepository classSubjectRepository;
     private final AttendanceRepository attendanceRepository;
+    private final FeeStructureRepository feeStructureRepository;
+    private final FeePaymentRepository feePaymentRepository;
+    private final FeeCarryForwardRepository feeCarryForwardRepository;
 
     public AdminController(StudentService studentService,
                            TeacherService teacherService,
@@ -88,7 +97,10 @@ public class AdminController {
                            StudentRepository studentRepository,
                            AnnouncementService announcementService,
                            ClassSubjectRepository classSubjectRepository,
-                           AttendanceRepository attendanceRepository) {
+                           AttendanceRepository attendanceRepository,
+                           FeeStructureRepository feeStructureRepository,
+                           FeePaymentRepository feePaymentRepository,
+                           FeeCarryForwardRepository feeCarryForwardRepository) {
         this.studentService = studentService;
         this.teacherService = teacherService;
         this.examService = examService;
@@ -102,6 +114,9 @@ public class AdminController {
         this.announcementService = announcementService;
         this.classSubjectRepository = classSubjectRepository;
         this.attendanceRepository = attendanceRepository;
+        this.feeStructureRepository = feeStructureRepository;
+        this.feePaymentRepository = feePaymentRepository;
+        this.feeCarryForwardRepository = feeCarryForwardRepository;
     }
 
     // ===================== STUDENT ENDPOINTS =====================
@@ -329,8 +344,57 @@ public class AdminController {
 
     @PostMapping("/promote")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public ResponseEntity<PromoteResponse> promoteStudents(@Valid @RequestBody PromoteRequest request) {
-        return ResponseEntity.ok(studentService.promoteStudents(request));
+        // 1. Fetch students BEFORE promotion so we know their current class
+        List<Student> studentsBeforePromotion = studentRepository.findByClassesId(request.fromClassId());
+
+        // 2. Perform promotion (students' class gets updated)
+        PromoteResponse response = studentService.promoteStudents(request);
+
+        // 3. Compute and save carry-forward balances if promoting (not graduating)
+        if (request.toClassId() != null
+                && request.newAcademicYear() != null
+                && !request.newAcademicYear().isBlank()) {
+
+            String newYear  = request.newAcademicYear();
+            String prevYear = getPreviousYear(newYear);
+
+            // Fee structures for the FROM class in the previous year
+            List<FeeStructure> prevStructures =
+                    feeStructureRepository.findByClassesIdAndAcademicYear(request.fromClassId(), prevYear);
+            double classFeePrevYear = prevStructures.stream()
+                    .mapToDouble(FeeStructure::getAmount).sum();
+
+            for (Student student : studentsBeforePromotion) {
+                // Skip if carry-forward already exists for this transition
+                if (feeCarryForwardRepository.existsByStudentIdAndFromAcademicYearAndToAcademicYear(
+                        student.getId(), prevYear, newYear)) continue;
+
+                Double paid = feePaymentRepository.sumPaidByStudentAndYear(student.getId(), prevYear);
+                if (paid == null) paid = 0.0;
+                double balance = classFeePrevYear - paid;
+
+                if (balance > 0) {
+                    FeeCarryForward cf = new FeeCarryForward();
+                    cf.setStudent(student);
+                    cf.setAmount(balance);
+                    cf.setFromAcademicYear(prevYear);
+                    cf.setToAcademicYear(newYear);
+                    feeCarryForwardRepository.save(cf);
+                }
+            }
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    /** "2026-27" → "2025-26" */
+    private String getPreviousYear(String year) {
+        try {
+            int start = Integer.parseInt(year.split("-")[0]);
+            return (start - 1) + "-" + String.valueOf(start).substring(2);
+        } catch (Exception e) { return ""; }
     }
 
     // ─── Teacher Progress ─────────────────────────────────────────────────────

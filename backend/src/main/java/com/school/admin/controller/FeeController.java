@@ -10,6 +10,8 @@ import com.school.admin.repository.ClassesRepository;
 import com.school.admin.repository.FeePaymentRepository;
 import com.school.admin.repository.FeeStructureRepository;
 import com.school.admin.repository.StudentRepository;
+import com.school.admin.entity.FeeCarryForward;
+import com.school.admin.repository.FeeCarryForwardRepository;
 import com.school.admin.service.AnnouncementService;
 import com.school.admin.service.ReceiptPdfService;
 import org.slf4j.Logger;
@@ -36,6 +38,7 @@ public class FeeController {
     private final FeePaymentRepository feePaymentRepo;
     private final ClassesRepository classesRepo;
     private final StudentRepository studentRepo;
+    private final FeeCarryForwardRepository feeCarryForwardRepo;
     private final ReceiptPdfService receiptPdfService;
     private final AnnouncementService announcementService;
 
@@ -43,12 +46,14 @@ public class FeeController {
                          FeePaymentRepository feePaymentRepo,
                          ClassesRepository classesRepo,
                          StudentRepository studentRepo,
+                         FeeCarryForwardRepository feeCarryForwardRepo,
                          ReceiptPdfService receiptPdfService,
                          AnnouncementService announcementService) {
         this.feeStructureRepo = feeStructureRepo;
         this.feePaymentRepo = feePaymentRepo;
         this.classesRepo = classesRepo;
         this.studentRepo = studentRepo;
+        this.feeCarryForwardRepo = feeCarryForwardRepo;
         this.receiptPdfService = receiptPdfService;
         this.announcementService = announcementService;
     }
@@ -200,6 +205,16 @@ public class FeeController {
             List<FeeStructure> structures = feeStructureRepo.findByClassesIdAndAcademicYear(classId, year);
             summary.put("feeStructures", structures.stream().map(this::mapStructure).collect(Collectors.toList()));
         }
+        // Add carry-forward records
+        List<FeeCarryForward> carryForwards = feeCarryForwardRepo.findByStudentIdAndToAcademicYear(studentId, year);
+        summary.put("carryForwards", carryForwards.stream().map(cf -> {
+            Map<String, Object> cfMap = new LinkedHashMap<>();
+            cfMap.put("id", cf.getId());
+            cfMap.put("fromAcademicYear", cf.getFromAcademicYear());
+            cfMap.put("toAcademicYear", cf.getToAcademicYear());
+            cfMap.put("amount", cf.getAmount());
+            return cfMap;
+        }).collect(Collectors.toList()));
         return ResponseEntity.ok(summary);
     }
 
@@ -207,11 +222,16 @@ public class FeeController {
 
     private Map<String, Object> buildStudentSummary(Student s, String year) {
         Long classId = s.getClasses() != null ? s.getClasses().getId() : null;
-        double totalDue = 0;
+        double classFee = 0;
         if (classId != null) {
             List<FeeStructure> structures = feeStructureRepo.findByClassesIdAndAcademicYear(classId, year);
-            totalDue = structures.stream().mapToDouble(FeeStructure::getAmount).sum();
+            classFee = structures.stream().mapToDouble(FeeStructure::getAmount).sum();
         }
+        // Add any carry-forward balance from previous year
+        Double carryForward = feeCarryForwardRepo.sumCarryForwardByStudentAndYear(s.getId(), year);
+        if (carryForward == null) carryForward = 0.0;
+
+        double totalDue = classFee + carryForward;
         Double totalPaid = feePaymentRepo.sumPaidByStudentAndYear(s.getId(), year);
         if (totalPaid == null) totalPaid = 0.0;
         double balance = totalDue - totalPaid;
@@ -224,6 +244,8 @@ public class FeeController {
         m.put("className", s.getClasses() != null ? s.getClasses().getClassName() : "");
         m.put("sectionName", s.getSection() != null ? s.getSection().getSectionName() : "");
         m.put("parentEmail", s.getParentEmail());
+        m.put("classFee", classFee);
+        m.put("carryForward", carryForward);
         m.put("totalDue", totalDue);
         m.put("totalPaid", totalPaid);
         m.put("balance", Math.max(0, balance));

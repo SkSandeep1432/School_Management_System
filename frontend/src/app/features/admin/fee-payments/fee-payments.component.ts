@@ -98,12 +98,25 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
               </div>
 
               <!-- Fee Structure Breakdown -->
-              <div class="fee-breakdown" *ngIf="selectedStudent.feeStructures?.length > 0">
+              <div class="fee-breakdown" *ngIf="selectedStudent.feeStructures?.length > 0 || selectedStudent.carryForwards?.length > 0">
                 <h4 class="breakdown-title">Fee Breakdown</h4>
                 <div class="breakdown-list">
                   <div class="breakdown-item" *ngFor="let fs of selectedStudent.feeStructures">
                     <span class="fee-type-chip ft-{{ fs.feeType.toLowerCase() }}">{{ getFeeLabel(fs.feeType) }}</span>
                     <span class="breakdown-amt">&#8377;{{ fs.amount | number:'1.0-0' }}</span>
+                  </div>
+                  <!-- Carry-forward rows -->
+                  <div class="breakdown-item carry-fwd" *ngFor="let cf of selectedStudent.carryForwards">
+                    <span class="fee-type-chip ft-carry">
+                      <mat-icon style="font-size:13px;width:13px;height:13px;vertical-align:middle">history</mat-icon>
+                      Previous Balance ({{ cf.fromAcademicYear }})
+                    </span>
+                    <span class="breakdown-amt carry-amt">&#8377;{{ cf.amount | number:'1.0-0' }}</span>
+                  </div>
+                  <!-- Total row if carry-forward exists -->
+                  <div class="breakdown-total" *ngIf="selectedStudent.carryForwards?.length > 0">
+                    <span>Total Due (incl. carry forward)</span>
+                    <strong>&#8377;{{ selectedStudent.totalDue | number:'1.0-0' }}</strong>
                   </div>
                 </div>
               </div>
@@ -332,6 +345,10 @@ import { NavbarComponent } from '../../../shared/components/navbar/navbar.compon
     .ft-sports { background:#fff8e1; color:#e65100; }
     .ft-transport { background:#fce4ec; color:#880e4f; }
     .ft-other { background:#f5f5f5; color:#555; }
+    .ft-carry { background:#fff3e0; color:#e65100; display:flex; align-items:center; gap:4px; }
+    .carry-fwd { border:1px dashed #ffb74d !important; background:#fff8f0 !important; }
+    .carry-amt { color:#bf360c !important; }
+    .breakdown-total { display:flex; justify-content:space-between; align-items:center; width:100%; padding:8px 12px; background:#e8eaf6; border-radius:8px; border:1.5px solid #c5cae9; font-size:0.88rem; color:#1a237e; }
 
     /* Payment Form */
     .payment-form { padding:20px 24px; border-bottom:1px solid #f0f0f0; }
