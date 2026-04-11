@@ -11,7 +11,9 @@ import com.school.admin.dto.response.MessageResponse;
 import com.school.admin.dto.response.StudentResponse;
 import com.school.admin.dto.response.TeacherAssignmentResponse;
 import com.school.admin.entity.Attendance;
+import com.school.admin.entity.Notification;
 import com.school.admin.entity.Teacher;
+import com.school.admin.repository.NotificationRepository;
 import com.school.admin.service.AttendanceService;
 import com.school.admin.service.ComplaintService;
 import com.school.admin.service.ExamService;
@@ -24,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,19 +51,22 @@ public class TeacherController {
     private final AttendanceService attendanceService;
     private final ExamService examService;
     private final ComplaintService complaintService;
+    private final NotificationRepository notificationRepository;
 
     public TeacherController(TeacherService teacherService,
                               StudentService studentService,
                               MarksService marksService,
                               AttendanceService attendanceService,
                               ExamService examService,
-                              ComplaintService complaintService) {
+                              ComplaintService complaintService,
+                              NotificationRepository notificationRepository) {
         this.teacherService = teacherService;
         this.studentService = studentService;
         this.marksService = marksService;
         this.attendanceService = attendanceService;
         this.examService = examService;
         this.complaintService = complaintService;
+        this.notificationRepository = notificationRepository;
     }
 
     @GetMapping("/assignments")
@@ -144,5 +150,52 @@ public class TeacherController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ReplyComplaintRequest request) {
         return ResponseEntity.ok(complaintService.replyToComplaint(id, userDetails.getUsername(), request));
+    }
+
+    @GetMapping("/notifications")
+    @Transactional(readOnly = true)
+    public ResponseEntity<java.util.Map<String, Object>> getNotifications(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = teacherService.getCurrentTeacher(userDetails.getUsername());
+        List<Notification> notifications = notificationRepository.findByTeacherIdOrderByCreatedAtDesc(teacher.getId());
+        long unreadCount = notificationRepository.countByTeacherIdAndIsReadFalse(teacher.getId());
+        List<java.util.Map<String, Object>> items = notifications.stream().map(n -> {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", n.getId());
+            m.put("title", n.getTitle());
+            m.put("message", n.getMessage());
+            m.put("type", n.getType());
+            m.put("isRead", n.isRead());
+            m.put("createdAt", n.getCreatedAt() != null ? n.getCreatedAt().toString() : null);
+            return m;
+        }).collect(Collectors.toList());
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("unreadCount", unreadCount);
+        result.put("notifications", items);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/notifications/{notifId}/read")
+    @Transactional
+    public ResponseEntity<MessageResponse> markNotificationRead(
+            @PathVariable Long notifId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = teacherService.getCurrentTeacher(userDetails.getUsername());
+        notificationRepository.findById(notifId).ifPresent(n -> {
+            if (n.getTeacher().getId().equals(teacher.getId())) {
+                n.setRead(true);
+                notificationRepository.save(n);
+            }
+        });
+        return ResponseEntity.ok(new MessageResponse("Marked as read."));
+    }
+
+    @PutMapping("/notifications/read-all")
+    @Transactional
+    public ResponseEntity<MessageResponse> markAllNotificationsRead(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Teacher teacher = teacherService.getCurrentTeacher(userDetails.getUsername());
+        notificationRepository.markAllReadByTeacherId(teacher.getId());
+        return ResponseEntity.ok(new MessageResponse("All notifications marked as read."));
     }
 }

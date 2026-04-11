@@ -4,18 +4,23 @@ import com.school.admin.dto.request.CreateExamRequest;
 import com.school.admin.dto.response.ExamResponse;
 import com.school.admin.entity.Exam;
 import com.school.admin.entity.Mark;
+import com.school.admin.entity.Notification;
 import com.school.admin.entity.Student;
+import com.school.admin.entity.Teacher;
 import com.school.admin.entity.TeacherAssignment;
 import com.school.admin.exception.BadRequestException;
 import com.school.admin.exception.ResourceNotFoundException;
 import com.school.admin.repository.ExamRepository;
 import com.school.admin.repository.MarksRepository;
+import com.school.admin.repository.NotificationRepository;
 import com.school.admin.repository.StudentRepository;
 import com.school.admin.repository.TeacherAssignmentRepository;
+import com.school.admin.repository.TeacherRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,15 +34,24 @@ public class ExamService {
     private final MarksRepository marksRepository;
     private final StudentRepository studentRepository;
     private final TeacherAssignmentRepository teacherAssignmentRepository;
+    private final AnnouncementService announcementService;
+    private final TeacherRepository teacherRepository;
+    private final NotificationRepository notificationRepository;
 
     public ExamService(ExamRepository examRepository,
                        MarksRepository marksRepository,
                        StudentRepository studentRepository,
-                       TeacherAssignmentRepository teacherAssignmentRepository) {
+                       TeacherAssignmentRepository teacherAssignmentRepository,
+                       AnnouncementService announcementService,
+                       TeacherRepository teacherRepository,
+                       NotificationRepository notificationRepository) {
         this.examRepository = examRepository;
         this.marksRepository = marksRepository;
         this.studentRepository = studentRepository;
         this.teacherAssignmentRepository = teacherAssignmentRepository;
+        this.announcementService = announcementService;
+        this.teacherRepository = teacherRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     @Transactional
@@ -75,7 +89,46 @@ public class ExamService {
             throw new BadRequestException("Exam is already locked.");
         }
         exam.setLocked(true);
-        return mapToResponse(examRepository.save(exam));
+        ExamResponse response = mapToResponse(examRepository.save(exam));
+
+        // Build notification content
+        String notifTitle = "📋 Exam Confirmed: " + exam.getExamName();
+        String notifMessage = "The " + exam.getExamType().name() + " exam '" + exam.getExamName()
+                + "' for Academic Year " + exam.getAcademicYear() + " has been confirmed by administration."
+                + " Exam period: " + exam.getStartDate() + " to " + exam.getEndDate()
+                + ". Mark entry is now closed.";
+
+        // Send email to all teachers
+        try {
+            announcementService.sendToTeachers(
+                "Exam Confirmed: " + exam.getExamName(),
+                "Dear Teacher,\n\nThe exam '" + exam.getExamName() + "' ("
+                + exam.getExamType().name() + ") for Academic Year " + exam.getAcademicYear()
+                + " has been confirmed/locked by the School Administration.\n\n"
+                + "Exam Period: " + exam.getStartDate() + " to " + exam.getEndDate() + "\n\n"
+                + "Please note that mark entry for this exam is now closed.\n\n"
+                + "Regards,\nSchool Administration"
+            );
+        } catch (Exception e) {
+            // Log but don't fail the lock operation
+            System.err.println("Failed to send exam lock email: " + e.getMessage());
+        }
+
+        // Create in-app notification for each teacher
+        List<Teacher> teachers = teacherRepository.findAll();
+        LocalDateTime now = LocalDateTime.now();
+        for (Teacher teacher : teachers) {
+            Notification notification = new Notification();
+            notification.setTeacher(teacher);
+            notification.setTitle(notifTitle);
+            notification.setMessage(notifMessage);
+            notification.setType("EXAM_LOCKED");
+            notification.setRead(false);
+            notification.setCreatedAt(now);
+            notificationRepository.save(notification);
+        }
+
+        return response;
     }
 
     @Transactional

@@ -36,4 +36,16 @@ export class TeacherService {
   getMyStudents(classId: number, sectionId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.teacherUrl}/students?classId=${classId}&sectionId=${sectionId}`);
   }
+
+  getNotifications(): Observable<any> {
+    return this.http.get<any>(`${this.teacherUrl}/notifications`);
+  }
+
+  markNotificationRead(id: number): Observable<any> {
+    return this.http.put(`${this.teacherUrl}/notifications/${id}/read`, {});
+  }
+
+  markAllNotificationsRead(): Observable<any> {
+    return this.http.put(`${this.teacherUrl}/notifications/read-all`, {});
+  }
 }
