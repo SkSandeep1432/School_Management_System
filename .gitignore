@@ -33,4 +33,9 @@ Thumbs.db
 *.log
 logs/
 
-# Environment / secrets (keep application.properties in repo but warn)
+# Environment / secrets — NEVER commit these
+.env
+.env.*
+application-prod.properties
+application-secret.properties
+secrets.properties

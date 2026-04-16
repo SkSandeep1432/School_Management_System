@@ -7,6 +7,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -17,6 +19,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
@@ -91,8 +95,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        // Log full details server-side only — never expose stack traces to client
+        logger.error("Unexpected error: {}", ex.getMessage(), ex);
         Map<String, Object> body = new HashMap<>();
-        body.put("message", "An unexpected error occurred: " + ex.getMessage());
+        body.put("message", "An unexpected error occurred. Please try again later.");
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);

@@ -24,9 +24,8 @@ public class JwtTokenProvider {
     private long jwtExpiration;
 
     private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(
-                java.util.Base64.getEncoder().encodeToString(jwtSecret.getBytes())
-        );
+        // Secret must be a Base64-encoded string of at least 64 bytes for HS512
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 

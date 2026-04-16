@@ -133,9 +133,13 @@ public class FeeController {
         Long studentId = Long.valueOf(body.get("studentId").toString());
         Student student = studentRepo.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+        double amount = Double.parseDouble(body.get("amount").toString());
+        if (amount <= 0 || amount > 10_000_000) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid payment amount."));
+        }
         FeePayment fp = new FeePayment();
         fp.setStudent(student);
-        fp.setAmount(Double.valueOf(body.get("amount").toString()));
+        fp.setAmount(amount);
         fp.setPaymentDate(LocalDate.parse(body.get("paymentDate").toString()));
         fp.setPaymentMode(body.get("paymentMode").toString());
         fp.setAcademicYear(body.get("academicYear").toString());
